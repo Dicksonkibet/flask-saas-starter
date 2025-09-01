@@ -300,7 +300,7 @@ def admin():
     
     return render_template('dashboard/admin.html', stats=stats)
 
-# Users management route
+# Users management route - Enhanced version
 @bp.route('/users')
 @login_required
 def users():
@@ -309,9 +309,24 @@ def users():
         flash('Access denied. Admin privileges required.', 'error')
         return redirect(url_for('main.dashboard'))
     
-    # Get users from the same organization
-    users = User.query.filter_by(organization_id=current_user.organization_id).all()
-    return render_template('dashboard/users.html', users=users)
+    try:
+        # Get users from the same organization with pagination and ordering
+        users = User.query.filter_by(organization_id=current_user.organization_id)\
+                         .order_by(User.created_at.desc())\
+                         .all()
+        
+        # Get organization info for context
+        organization = Organization.query.get(current_user.organization_id)
+        
+        return render_template('dashboard/users.html', 
+                             users=users, 
+                             organization=organization,
+                             UserRole=UserRole)  # Pass UserRole enum to template
+        
+    except Exception as e:
+        flash('Error loading users. Please try again.', 'error')
+        print(f"Error in users management: {e}")
+        return redirect(url_for('main.dashboard'))
 
 # Settings route
 @bp.route('/settings')
