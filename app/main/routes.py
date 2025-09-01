@@ -8,13 +8,11 @@ from app.models.organization import Organization, SubscriptionStatus
 from app.auth.forms import LoginForm, RegisterForm, ResetPasswordForm
 from app.utils.email import send_verification_email, send_password_reset_email
 from app.utils.decorators import anonymous_required
-
-
-from app.models.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
+from app.models.subscription import Subscription, SubscriptionPlan
 from app.utils.decorators import role_required
 import stripe
 import os
-
+import re
 
 bp = Blueprint('main', __name__)
 
@@ -42,11 +40,6 @@ def login():
             if not user.is_active:
                 flash('Your account has been deactivated. Please contact support.', 'error')
                 return render_template('auth/login.html', form=form)
-            
-            # Check if email is verified (optional - remove if you don't want to enforce this)
-            # if not user.is_verified:
-            #     flash('Please verify your email address before logging in. Check your inbox for the verification link.', 'warning')
-            #     return render_template('auth/login.html', form=form)
             
             # Log the user in
             login_user(user, remember=form.remember_me.data)
@@ -85,8 +78,6 @@ def login():
     
     return render_template('auth/login.html', form=form)
 
-# Replace your register route with this improved version
-
 @bp.route('/register', methods=['GET', 'POST'])
 @limiter.limit("3 per minute")
 @anonymous_required
@@ -106,7 +97,6 @@ def register():
                 return render_template('auth/register.html', form=form)
             
             # Validate username format (alphanumeric, hyphens, underscores only)
-            import re
             if not re.match(r'^[a-zA-Z0-9_-]+$', username):
                 flash('Username can only contain letters, numbers, hyphens, and underscores.', 'error')
                 return render_template('auth/register.html', form=form)
@@ -193,81 +183,6 @@ def register():
                 flash(f'{field.replace("_", " ").title()}: {error}', 'error')
     
     return render_template('auth/register.html', form=form)
-    form = RegisterForm()
-    if form.validate_on_submit():
-        try:
-            # Clean form data
-            username = form.username.data.lower().strip()
-            email = form.email.data.lower().strip()
-            first_name = form.first_name.data.strip()
-            last_name = form.last_name.data.strip()
-            
-            # Check if user already exists
-            if User.query.filter_by(email=email).first():
-                flash('An account with this email already exists.', 'error')
-                return render_template('auth/register.html', form=form)
-            
-            if User.query.filter_by(username=username).first():
-                flash('This username is already taken.', 'error')
-                return render_template('auth/register.html', form=form)
-            
-            # Create organization first
-            org = Organization(
-                name=f"{first_name}'s Organization",
-                slug=f"{username}-org",
-                subscription_plan='free',
-                subscription_status=SubscriptionStatus.TRIAL
-            )
-            db.session.add(org)
-            db.session.flush()  # Get the organization ID without committing
-            
-            # Create user
-            user = User(
-                username=username,
-                email=email,
-                first_name=first_name,
-                last_name=last_name,
-                role=UserRole.ADMIN,
-                organization_id=org.id,
-                is_active=True,
-                is_verified=False  # Will be set to True after email verification
-            )
-            user.set_password(form.password.data)
-            
-            # Generate verification token
-            token = user.generate_verification_token()
-            
-            db.session.add(user)
-            db.session.flush()  # Get the user ID without committing
-            
-            # Set organization owner
-            org.owner_id = user.id
-            
-            # Commit everything together
-            db.session.commit()
-            
-            # Send verification email
-            try:
-                send_verification_email(user, token)
-                flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
-            except Exception as e:
-                print(f"Error sending verification email: {e}")
-                flash('Registration successful! However, we could not send the verification email. Please contact support.', 'warning')
-            
-            return redirect(url_for('main.login'))
-            
-        except Exception as e:
-            db.session.rollback()
-            flash('An error occurred during registration. Please try again.', 'error')
-            print(f"Registration error: {e}")
-    
-    # If form validation failed, flash field errors
-    if form.errors:
-        for field, errors in form.errors.items():
-            for error in errors:
-                flash(f'{field.title()}: {error}', 'error')
-    
-    return render_template('auth/register.html', form=form)
 
 @bp.route('/logout')
 @login_required
@@ -291,7 +206,6 @@ def verify_email(token):
         else:
             user.is_verified = True
             user.email_verification_token = None
-            user.email_verified_at = datetime.now(timezone.utc)
             
             try:
                 db.session.commit()
@@ -334,7 +248,7 @@ def resend_verification():
     
     return redirect(url_for('main.login'))
 
-# Dashboard routes (moved from dashboard blueprint)
+# Dashboard routes
 @bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -440,7 +354,7 @@ def api_stats():
     
     return jsonify(stats)
 
-# API routes (moved from api blueprint)
+# API routes
 @bp.route('/api/v1/health')
 def api_health():
     return jsonify({'status': 'healthy', 'timestamp': datetime.now(timezone.utc).isoformat()})

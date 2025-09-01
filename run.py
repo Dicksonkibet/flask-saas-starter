@@ -1,6 +1,7 @@
 from app import create_app, db
-from app.models.user import User
-from app.models.organization import Organization
+from app.models.user import User, UserRole
+from app.models.organization import Organization, SubscriptionStatus
+import os
 
 app = create_app()
 
@@ -10,31 +11,73 @@ def make_shell_context():
     return {
         'db': db,
         'User': User,
-        'Organization': Organization
+        'Organization': Organization,
+        'UserRole': UserRole,
+        'SubscriptionStatus': SubscriptionStatus
     }
 
 def init_database():
-    """Initialize database tables"""
+    """Initialize database tables by dropping all and recreating"""
     with app.app_context():
         try:
+            # Drop all existing tables
+            db.drop_all()
+            print("All existing tables dropped.")
+            
             # Create all tables
             db.create_all()
             print("Database tables created successfully!")
             
-            # Verify tables were created
-            inspector = db.inspect(db.engine)
-            tables = inspector.get_table_names()
-            print(f"Created tables: {', '.join(tables)}")
+            # Create a default admin user for testing
+            create_test_data()
             
         except Exception as e:
-            print(f"Error creating database tables: {e}")
+            print(f"Error initializing database: {e}")
             raise
+
+def create_test_data():
+    """Create test data for development environment"""
+    try:
+        # Create a test organization
+        org = Organization(
+            name="Test Organization",
+            slug="test-org",
+            subscription_plan='free',
+            subscription_status=SubscriptionStatus.ACTIVE
+        )
+        db.session.add(org)
+        db.session.flush()  # Get org ID without committing
+        
+        # Create a test admin user
+        admin_user = User(
+            username="admin",
+            email="admin@example.com",
+            first_name="Admin",
+            last_name="User",
+            role=UserRole.ADMIN,
+            organization_id=org.id,
+            is_active=True,
+            is_verified=True
+        )
+        admin_user.set_password("admin123")
+        db.session.add(admin_user)
+        
+        # Set organization owner
+        org.owner_id = admin_user.id
+        
+        db.session.commit()
+        print("Created test admin user: admin@example.com / admin123")
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating test data: {e}")
 
 if __name__ == '__main__':
     # Initialize database before running the app
     print("Starting Flask application...")
     print("Initializing database...")
     
+    # Always drop and recreate all tables to ensure schema is current
     init_database()
     
     print("Starting web server on http://localhost:5000")

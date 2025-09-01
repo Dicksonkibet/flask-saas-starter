@@ -1,4 +1,3 @@
-# app/models/user.py
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -22,8 +21,6 @@ class User(UserMixin, db.Model):
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
     role = db.Column(db.Enum(UserRole), default=UserRole.USER, nullable=False)
-
-    
     
     # Account status
     is_active = db.Column(db.Boolean, default=True, nullable=False)
@@ -34,7 +31,7 @@ class User(UserMixin, db.Model):
     two_factor_enabled = db.Column(db.Boolean, default=False)
     two_factor_secret = db.Column(db.String(255))
     
-    # Organization relationship - FIXED to avoid circular reference issues
+    # Organization relationship
     organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'))
     organization = db.relationship('Organization', 
                                  foreign_keys=[organization_id],
