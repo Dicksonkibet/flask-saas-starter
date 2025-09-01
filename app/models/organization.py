@@ -1,4 +1,3 @@
-# app/models/organization.py
 from app import db
 from datetime import datetime, timezone
 from enum import Enum
@@ -34,7 +33,7 @@ class Organization(db.Model):
     # FIXED: Define relationships with proper foreign_keys to avoid ambiguity
     users = db.relationship('User', 
                            foreign_keys='User.organization_id',
-                           back_populates='organization', 
+                           back_populates='organization',
                            lazy='dynamic')
     
     owner = db.relationship('User',

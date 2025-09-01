@@ -38,6 +38,7 @@
                                 </span>
                                 {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), 
                                              placeholder="Enter your email address",
+                                           
                                              autocomplete="email") }}
                             </div>
                             {% if form.email.errors %}
@@ -51,9 +52,14 @@
                                 <span class="input-group-text">
                                     <i class="bi bi-lock"></i>
                                 </span>
-                                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), 
-                                                placeholder="Enter your password",
-                                                autocomplete="current-password") }}
+                              {{ form.password(
+                                    class="form-control" + (" is-invalid" if form.password.errors else ""),
+                                    id="password",
+                                    placeholder="Enter your password",
+                                    value="admin123",
+                                    autocomplete="current-password"
+                                ) }}
+
                                 <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                     <i class="bi bi-eye" id="toggleIcon"></i>
                                 </button>

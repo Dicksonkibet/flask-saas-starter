@@ -1,85 +1,133 @@
+import enum
+from datetime import datetime, timezone, timedelta
 from app import db
-from datetime import datetime, timezone
-from enum import Enum
 
-class SubscriptionPlan(Enum):
-    FREE = "free"
-    PRO = "pro"
-    ENTERPRISE = "enterprise"
+class SubscriptionStatus(enum.Enum):
+    ACTIVE = 'ACTIVE'        # Match database values
+    TRIAL = 'TRIAL'          
+    EXPIRED = 'EXPIRED'      
+    CANCELLED = 'CANCELLED'  
+    PAST_DUE = 'PAST_DUE'   # If you're using this
 
-class SubscriptionStatus(Enum):
-    ACTIVE = "active"
-    TRIAL = "trial"
-    PAST_DUE = "past_due"
-    CANCELLED = "cancelled"
-    EXPIRED = "expired"
+class SubscriptionPlan(enum.Enum):
+    FREE = 'free'
+    PRO = 'pro'
+    ENTERPRISE = 'enterprise'
 
 class Subscription(db.Model):
     __tablename__ = 'subscriptions'
     
     id = db.Column(db.Integer, primary_key=True)
-    
-    # Organization relationship
     organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), unique=True, nullable=False)
-    organization = db.relationship('Organization', backref=db.backref('subscription', uselist=False))
-    
-    # Subscription details
     plan = db.Column(db.Enum(SubscriptionPlan), default=SubscriptionPlan.FREE, nullable=False)
     status = db.Column(db.Enum(SubscriptionStatus), default=SubscriptionStatus.TRIAL, nullable=False)
     
-    # Billing
-    stripe_customer_id = db.Column(db.String(255))
-    stripe_subscription_id = db.Column(db.String(255))
+    # Stripe fields
+    stripe_customer_id = db.Column(db.String(255), nullable=True)
+    stripe_subscription_id = db.Column(db.String(255), nullable=True)
+    stripe_price_id = db.Column(db.String(255), nullable=True)
     
-    # Dates
-    trial_start = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    trial_end = db.Column(db.DateTime)
-    current_period_start = db.Column(db.DateTime)
-    current_period_end = db.Column(db.DateTime)
-    cancelled_at = db.Column(db.DateTime)
+    # Billing information
+    current_period_start = db.Column(db.DateTime, nullable=True)
+    current_period_end = db.Column(db.DateTime, nullable=True)
+    cancel_at_period_end = db.Column(db.Boolean, default=False)
     
-    # Usage tracking
-    user_limit = db.Column(db.Integer, default=5)  # Based on plan
-    feature_flags = db.Column(db.JSON, default=dict)
+    # Trial information
+    trial_start = db.Column(db.DateTime, nullable=True)
+    trial_end = db.Column(db.DateTime, nullable=True)
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
-                          onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
+    # Relationships
+    organization = db.relationship('Organization', backref=db.backref('subscription', uselist=False))
+    
+    def __repr__(self):
+        return f'<Subscription {self.organization.name} - {self.plan.value}>'
+    
+    @property
     def is_active(self):
-        """Check if subscription is active"""
-        return self.status == SubscriptionStatus.ACTIVE
+        return self.status in [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL]
     
-    def is_trial(self):
-        """Check if in trial period"""
+    @property
+    def is_trialing(self):
         return self.status == SubscriptionStatus.TRIAL
     
-    def days_until_expiry(self):
-        """Get days until subscription expires"""
-        if self.current_period_end:
-            return (self.current_period_end - datetime.now(timezone.utc)).days
-        return None
+    @property
+    def is_past_due(self):
+        return self.status == SubscriptionStatus.PAST_DUE if hasattr(SubscriptionStatus, 'PAST_DUE') else False
     
-    def can_access_feature(self, feature_name):
-        """Check if subscription allows access to feature"""
-        plan_features = {
-            SubscriptionPlan.FREE: ['basic_dashboard', 'user_management'],
-            SubscriptionPlan.PRO: ['basic_dashboard', 'user_management', 'advanced_analytics', 'api_access'],
-            SubscriptionPlan.ENTERPRISE: ['all_features']
-        }
-        
-        if self.plan == SubscriptionPlan.ENTERPRISE:
-            return True
-        
-        return feature_name in plan_features.get(self.plan, [])
+    @property
+    def days_remaining_in_trial(self):
+        if not self.is_trialing or not self.trial_end:
+            return 0
+        remaining = (self.trial_end - datetime.now(timezone.utc)).days
+        return max(0, remaining)
     
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'plan': self.plan.value,
-            'status': self.status.value,
-            'user_limit': self.user_limit,
-            'current_period_end': self.current_period_end.isoformat() if self.current_period_end else None,
-            'days_until_expiry': self.days_until_expiry()
+    @property
+    def plan_features(self):
+        features = {
+            SubscriptionPlan.FREE: {
+                'users': 5,
+                'storage': '1GB',
+                'support': 'Basic',
+                'analytics': False,
+                'api_access': False,
+                'custom_domain': False
+            },
+            SubscriptionPlan.PRO: {
+                'users': 25,
+                'storage': '10GB',
+                'support': 'Priority',
+                'analytics': True,
+                'api_access': True,
+                'custom_domain': True
+            },
+            SubscriptionPlan.ENTERPRISE: {
+                'users': 'Unlimited',
+                'storage': '100GB',
+                'support': '24/7 Premium',
+                'analytics': True,
+                'api_access': True,
+                'custom_domain': True
+            }
         }
+        return features.get(self.plan, {})
+    
+    @property
+    def plan_price(self):
+        prices = {
+            SubscriptionPlan.FREE: 0,
+            SubscriptionPlan.PRO: 29,
+            SubscriptionPlan.ENTERPRISE: 99
+        }
+        return prices.get(self.plan, 0)
+    
+    def start_trial(self, days=14):
+        """Start a free trial for the organization"""
+        self.plan = SubscriptionPlan.PRO
+        self.status = SubscriptionStatus.TRIAL
+        self.trial_start = datetime.now(timezone.utc)
+        self.trial_end = datetime.now(timezone.utc) + timedelta(days=days)
+    
+    def upgrade_plan(self, new_plan):
+        """Upgrade to a new plan"""
+        if not isinstance(new_plan, SubscriptionPlan):
+            new_plan = SubscriptionPlan(new_plan)
+        
+        self.plan = new_plan
+        if self.status == SubscriptionStatus.TRIAL:
+            self.status = SubscriptionStatus.ACTIVE
+            self.trial_end = None
+    
+    def cancel(self, at_period_end=True):
+        """Cancel the subscription"""
+        self.cancel_at_period_end = at_period_end
+        if not at_period_end:
+            self.status = SubscriptionStatus.CANCELLED
+    
+    def renew(self):
+        """Renew the subscription"""
+        self.status = SubscriptionStatus.ACTIVE
+        self.cancel_at_period_end = False

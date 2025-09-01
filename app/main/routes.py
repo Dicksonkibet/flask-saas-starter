@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
+from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from datetime import datetime, timezone
@@ -10,6 +10,7 @@ from app.utils.email import send_verification_email, send_password_reset_email
 from app.utils.decorators import anonymous_required
 from app.models.subscription import Subscription, SubscriptionPlan
 from app.utils.decorators import role_required
+from app.services.subscription_service import SubscriptionService  # ADD THIS IMPORT
 import stripe
 import os
 import re
@@ -381,16 +382,8 @@ stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 @login_required
 def subscription():
     """Current subscription details"""
-    subscription = current_user.organization.subscription
-    if not subscription:
-        # Create default free subscription
-        subscription = Subscription(
-            organization_id=current_user.organization_id,
-            plan=SubscriptionPlan.FREE,
-            status=SubscriptionStatus.ACTIVE
-        )
-        db.session.add(subscription)
-        db.session.commit()
+    subscription_service = SubscriptionService()
+    subscription = subscription_service.get_organization_subscription(current_user.organization_id)
     
     return render_template('pricing.html', subscription=subscription)
 
@@ -403,39 +396,23 @@ def upgrade_plan(plan_key):
         flash('Invalid plan selected.', 'error')
         return redirect(url_for('main.subscription'))
     
-    subscription = current_user.organization.subscription
+    subscription_service = SubscriptionService()
     
     try:
-        # Create Stripe checkout session
-        checkout_session = stripe.checkout.Session.create(
-            customer_email=current_user.email,
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': f'{plan_key.title()} Plan',
-                    },
-                    'unit_amount': get_plan_price(plan_key) * 100,  # Stripe uses cents
-                    'recurring': {
-                        'interval': 'month',
-                    },
-                },
-                'quantity': 1,
-            }],
-            mode='subscription',
-            success_url=url_for('main.payment_success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=url_for('main.subscription', _external=True),
-            metadata={
-                'organization_id': current_user.organization_id,
-                'plan': plan_key
-            }
+        success_url = url_for('main.payment_success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}'
+        cancel_url = url_for('main.subscription', _external=True)
+        
+        checkout_session = subscription_service.create_stripe_checkout_session(
+            current_user.organization,
+            plan_key,
+            success_url,
+            cancel_url
         )
         
         return redirect(checkout_session.url)
         
-    except stripe.error.StripeError as e:
-        flash(f'Payment error: {str(e)}', 'error')
+    except Exception as e:
+        flash(f'Error creating payment session: {str(e)}', 'error')
         return redirect(url_for('main.subscription'))
 
 @bp.route('/payment/success')
@@ -457,29 +434,48 @@ def payment_success():
     
     return redirect(url_for('main.subscription'))
 
+@bp.route('/subscription/cancel')
+@login_required
+@role_required('admin')
+def cancel_subscription():
+    """Cancel subscription"""
+    subscription_service = SubscriptionService()
+    
+    try:
+        success = subscription_service.cancel_subscription(current_user.organization_id)
+        
+        if success:
+            flash('Your subscription has been canceled. You can continue using the service until the end of your billing period.', 'success')
+        else:
+            flash('Error canceling subscription. Please try again or contact support.', 'error')
+            
+    except Exception as e:
+        flash(f'Error canceling subscription: {str(e)}', 'error')
+    
+    return redirect(url_for('main.subscription'))
+
 @bp.route('/webhook', methods=['POST'])
 def stripe_webhook():
     """Handle Stripe webhooks"""
     payload = request.get_data(as_text=True)
     sig_header = request.headers.get('Stripe-Signature')
-    webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET')
+    webhook_secret = current_app.config.get('STRIPE_WEBHOOK_SECRET')
     
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
-    except ValueError:
+        
+        subscription_service = SubscriptionService()
+        subscription_service.handle_webhook_event(event)
+        
+        return jsonify({'status': 'success'})
+        
+    except ValueError as e:
         return jsonify({'error': 'Invalid payload'}), 400
-    except stripe.error.SignatureVerificationError:
+    except stripe.error.SignatureVerificationError as e:
         return jsonify({'error': 'Invalid signature'}), 400
-    
-    # Handle different event types
-    if event['type'] == 'checkout.session.completed':
-        handle_successful_payment(event['data']['object'])
-    elif event['type'] == 'invoice.payment_succeeded':
-        handle_successful_payment(event['data']['object'])
-    elif event['type'] == 'invoice.payment_failed':
-        handle_failed_payment(event['data']['object'])
-    
-    return jsonify({'status': 'success'})
+    except Exception as e:
+        current_app.logger.error(f"Webhook error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 def handle_successful_payment(session):
     """Handle successful payment"""
