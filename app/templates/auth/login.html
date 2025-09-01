@@ -70,12 +70,7 @@
                                     {{ form.remember_me.label(class="form-check-label") }}
                                 </div>
                             </div>
-                            <div class="col-md-6 text-end">
-                                <a href="{{ url_for('main.forgot_password') if url_for('main.forgot_password', _external=False) else '#' }}" 
-                                   class="text-decoration-none small">
-                                    Forgot password?
-                                </a>
-                            </div>
+                            
                         </div>
                         
                         <div class="d-grid mb-4">

@@ -44,9 +44,9 @@ def login():
                 return render_template('auth/login.html', form=form)
             
             # Check if email is verified (optional - remove if you don't want to enforce this)
-            if not user.is_verified:
-                flash('Please verify your email address before logging in. Check your inbox for the verification link.', 'warning')
-                return render_template('auth/login.html', form=form)
+            # if not user.is_verified:
+            #     flash('Please verify your email address before logging in. Check your inbox for the verification link.', 'warning')
+            #     return render_template('auth/login.html', form=form)
             
             # Log the user in
             login_user(user, remember=form.remember_me.data)
@@ -85,10 +85,114 @@ def login():
     
     return render_template('auth/login.html', form=form)
 
+# Replace your register route with this improved version
+
 @bp.route('/register', methods=['GET', 'POST'])
 @limiter.limit("3 per minute")
 @anonymous_required
 def register():
+    form = RegisterForm()
+    if form.validate_on_submit():
+        try:
+            # Clean form data
+            username = form.username.data.lower().strip()
+            email = form.email.data.lower().strip()
+            first_name = form.first_name.data.strip()
+            last_name = form.last_name.data.strip()
+            
+            # Additional validation
+            if not username or not email or not first_name or not last_name:
+                flash('All fields are required.', 'error')
+                return render_template('auth/register.html', form=form)
+            
+            # Validate username format (alphanumeric, hyphens, underscores only)
+            import re
+            if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+                flash('Username can only contain letters, numbers, hyphens, and underscores.', 'error')
+                return render_template('auth/register.html', form=form)
+            
+            # Check minimum username length
+            if len(username) < 3:
+                flash('Username must be at least 3 characters long.', 'error')
+                return render_template('auth/register.html', form=form)
+            
+            # Check if user already exists
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user:
+                flash('An account with this email already exists.', 'error')
+                return render_template('auth/register.html', form=form)
+            
+            existing_username = User.query.filter_by(username=username).first()
+            if existing_username:
+                flash('This username is already taken.', 'error')
+                return render_template('auth/register.html', form=form)
+            
+            # Create organization first with better slug generation
+            org_slug = f"{username}-org"
+            counter = 1
+            while Organization.query.filter_by(slug=org_slug).first():
+                org_slug = f"{username}-org-{counter}"
+                counter += 1
+            
+            org = Organization(
+                name=f"{first_name}'s Organization",
+                slug=org_slug,
+                subscription_plan='free',
+                subscription_status=SubscriptionStatus.TRIAL
+            )
+            db.session.add(org)
+            db.session.flush()  # Get the organization ID without committing
+            
+            # Create user
+            user = User(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                role=UserRole.ADMIN,
+                organization_id=org.id,
+                is_active=True,
+                is_verified=False  # Will be set to True after email verification
+            )
+            user.set_password(form.password.data)
+            
+            # Generate verification token
+            token = user.generate_verification_token()
+            
+            db.session.add(user)
+            db.session.flush()  # Get the user ID without committing
+            
+            # Set organization owner
+            org.owner_id = user.id
+            
+            # Commit everything together
+            db.session.commit()
+            
+            # Send verification email
+            try:
+                send_verification_email(user, token)
+                flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
+            except Exception as e:
+                print(f"Error sending verification email: {e}")
+                flash('Registration successful! However, we could not send the verification email. Please contact support.', 'warning')
+            
+            return redirect(url_for('main.login'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred during registration. Please try again.', 'error')
+            print(f"Registration error: {e}")
+            # Log the full error for debugging
+            import traceback
+            print(traceback.format_exc())
+    
+    # If form validation failed, flash field errors
+    if form.errors:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f'{field.replace("_", " ").title()}: {error}', 'error')
+    
+    return render_template('auth/register.html', form=form)
     form = RegisterForm()
     if form.validate_on_submit():
         try:

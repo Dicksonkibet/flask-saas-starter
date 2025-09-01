@@ -27,7 +27,7 @@
                         {% endif %}
                     {% endwith %}
                     
-                    <form method="POST" class="needs-validation" novalidate>
+                    <form method="POST" class="needs-validation" novalidate id="registerForm">
                         {{ form.hidden_tag() }}
                         
                         <div class="row g-3 mb-3">
@@ -39,7 +39,8 @@
                                     </span>
                                     {{ form.first_name(class="form-control" + (" is-invalid" if form.first_name.errors else ""), 
                                                       placeholder="First name",
-                                                      autocomplete="given-name") }}
+                                                      autocomplete="given-name",
+                                                      required=true) }}
                                 </div>
                                 {% if form.first_name.errors %}
                                     <div class="invalid-feedback d-block">{{ form.first_name.errors[0] }}</div>
@@ -53,7 +54,8 @@
                                     </span>
                                     {{ form.last_name(class="form-control" + (" is-invalid" if form.last_name.errors else ""), 
                                                      placeholder="Last name",
-                                                     autocomplete="family-name") }}
+                                                     autocomplete="family-name",
+                                                     required=true) }}
                                 </div>
                                 {% if form.last_name.errors %}
                                     <div class="invalid-feedback d-block">{{ form.last_name.errors[0] }}</div>
@@ -69,13 +71,16 @@
                                 </span>
                                 {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), 
                                                placeholder="Choose a username",
-                                               autocomplete="username") }}
+                                               autocomplete="username",
+                                               required=true,
+                                               pattern="[a-zA-Z0-9_-]+",
+                                               title="Username can only contain letters, numbers, hyphens, and underscores") }}
                             </div>
                             {% if form.username.errors %}
                                 <div class="invalid-feedback d-block">{{ form.username.errors[0] }}</div>
                             {% else %}
                                 <div class="form-text">
-                                    <small class="text-muted">Username will be used for your organization URL</small>
+                                    <small class="text-muted">Username will be used for your organization URL (letters, numbers, - and _ only)</small>
                                 </div>
                             {% endif %}
                         </div>
@@ -88,7 +93,9 @@
                                 </span>
                                 {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), 
                                              placeholder="Enter your email address",
-                                             autocomplete="email") }}
+                                             autocomplete="email",
+                                             required=true,
+                                             type="email") }}
                             </div>
                             {% if form.email.errors %}
                                 <div class="invalid-feedback d-block">{{ form.email.errors[0] }}</div>
@@ -107,7 +114,9 @@
                                 </span>
                                 {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), 
                                                placeholder="Create a strong password",
-                                               autocomplete="new-password") }}
+                                               autocomplete="new-password",
+                                               required=true,
+                                               minlength="8") }}
                                 <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                     <i class="bi bi-eye" id="toggleIcon"></i>
                                 </button>
@@ -126,7 +135,8 @@
                                 </span>
                                 {{ form.password2(class="form-control" + (" is-invalid" if form.password2.errors else ""), 
                                                 placeholder="Confirm your password",
-                                                autocomplete="new-password") }}
+                                                autocomplete="new-password",
+                                                required=true) }}
                             </div>
                             {% if form.password2.errors %}
                                 <div class="invalid-feedback d-block">{{ form.password2.errors[0] }}</div>
@@ -148,7 +158,7 @@
                         </div>
                         
                         <div class="d-grid mb-3">
-                            {{ form.submit(class="btn btn-primary btn-lg", value="Create Account") }}
+                            {{ form.submit(class="btn btn-primary btn-lg", value="Create Account", id="submitBtn") }}
                         </div>
                     </form>
                     
@@ -262,6 +272,40 @@
         }
     });
     
+    // Form validation with custom validation
+    document.getElementById('registerForm').addEventListener('submit', function(event) {
+        let isValid = true;
+        
+        // Check if passwords match
+        const password = document.getElementById('password').value;
+        const password2 = document.getElementById('password2').value;
+        const password2Field = document.getElementById('password2');
+        
+        if (password !== password2) {
+            password2Field.classList.add('is-invalid');
+            const feedbackDiv = password2Field.parentNode.nextElementSibling;
+            if (feedbackDiv && feedbackDiv.classList.contains('invalid-feedback')) {
+                feedbackDiv.textContent = 'Passwords do not match';
+            }
+            isValid = false;
+        }
+        
+        // Check terms acceptance
+        const termsCheckbox = document.getElementById('terms');
+        if (!termsCheckbox.checked) {
+            termsCheckbox.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        // Check form validity
+        if (!this.checkValidity() || !isValid) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        
+        this.classList.add('was-validated');
+    });
+    
     // Auto-dismiss alerts after 5 seconds
     setTimeout(function() {
         const alerts = document.querySelectorAll('.alert');
@@ -273,37 +317,46 @@
         });
     }, 5000);
     
-    // Form validation
-    (function() {
-        'use strict';
-        window.addEventListener('load', function() {
-            const forms = document.getElementsByClassName('needs-validation');
-            Array.prototype.filter.call(forms, function(form) {
-                form.addEventListener('submit', function(event) {
-                    if (form.checkValidity() === false) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                    }
-                    form.classList.add('was-validated');
-                }, false);
-            });
-        }, false);
-    })();
-    
-    // Check username availability (debounced)
-    let usernameTimeout;
+    // Username validation - only allow alphanumeric, hyphens, and underscores
     document.getElementById('username').addEventListener('input', function() {
-        const username = this.value;
-        const usernameField = this;
-        
-        clearTimeout(usernameTimeout);
+        let username = this.value;
+        // Remove any invalid characters
+        username = username.replace(/[^a-zA-Z0-9_-]/g, '');
+        this.value = username;
         
         if (username.length >= 3) {
-            usernameTimeout = setTimeout(function() {
-                // You can implement an AJAX call here to check username availability
-                // For now, just show a loading state
-                console.log('Checking username availability for:', username);
-            }, 500);
+            // You can implement an AJAX call here to check username availability
+            console.log('Checking username availability for:', username);
+        }
+    });
+    
+    // Email validation
+    document.getElementById('email').addEventListener('blur', function() {
+        const email = this.value.trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        
+        if (email && !emailRegex.test(email)) {
+            this.classList.add('is-invalid');
+        } else if (email) {
+            this.classList.remove('is-invalid');
+        }
+    });
+    
+    // Prevent form submission while processing
+    let isSubmitting = false;
+    document.getElementById('registerForm').addEventListener('submit', function(event) {
+        const submitBtn = document.getElementById('submitBtn');
+        
+        if (isSubmitting) {
+            event.preventDefault();
+            return false;
+        }
+        
+        // If form is valid, show loading state
+        if (this.checkValidity()) {
+            isSubmitting = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Creating Account...';
+            submitBtn.disabled = true;
         }
     });
 </script>
