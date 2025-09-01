@@ -16,7 +16,10 @@ redis==5.0.0
 PyMySQL==1.1.0
 # Server / workers
 gunicorn==21.2.0
-celery==5.4.0     
+celery==5.4.0  
+
+Werkzeug<3.0
+
 
 # Utilities
 Pillow>=10.1.0
