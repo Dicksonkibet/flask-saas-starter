@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #0d6efd; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+        .button { display: inline-block; background: #0d6efd; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Welcome to Flask SaaS Starter!</h1>
+        </div>
+        <div class="content">
+            <h2>Hi {{ user.first_name }}!</h2>
+            <p>Thank you for registering with Flask SaaS Starter. To complete your registration and start using our platform, please verify your email address.</p>
+            
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="{{ verify_url }}" class="button">Verify Email Address</a>
+            </p>
+            
+            <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; background: #e9ecef; padding: 10px; border-radius: 4px;">
+                {{ verify_url }}
+            </p>
+            
+            <p>This verification link will expire in 24 hours for security reasons.</p>
+            
+            <p>If you didn't create an account with us, please ignore this email.</p>
+            
+            <p>Best regards,<br>The Flask SaaS Starter Team</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Flask SaaS Starter. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

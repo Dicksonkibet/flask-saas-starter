@@ -1,0 +1,240 @@
+/* Custom CSS for Flask SaaS Starter */
+
+:root {
+    --bs-primary: #0d6efd;
+    --bs-primary-rgb: 13, 110, 253;
+    --sidebar-width: 260px;
+}
+
+/* Dark theme variables */
+[data-bs-theme="dark"] {
+    --bs-body-bg: #121212;
+    --bs-body-color: #ffffff;
+}
+
+/* Avatar styling */
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.avatar-lg {
+    width: 80px;
+    height: 80px;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+/* Timeline styling */
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--bs-border-color);
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -23px;
+    top: 5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--bs-body-bg);
+}
+
+.timeline-content {
+    padding-left: 20px;
+}
+
+/* Card enhancements */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+/* Stats cards */
+.stats-card {
+    background: linear-gradient(135deg, var(--bs-primary) 0%, #0056b3 100%);
+    border: none;
+    color: white;
+}
+
+/* Loading states */
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity 500ms ease-in;
+}
+
+.htmx-request .htmx-indicator {
+    opacity: 1;
+}
+
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
+
+/* Form enhancements */
+.form-control:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Sidebar for larger dashboard layouts */
+.sidebar {
+    width: var(--sidebar-width);
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: var(--bs-light);
+    border-right: 1px solid var(--bs-border-color);
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+}
+
+.sidebar.show {
+    transform: translateX(0);
+}
+
+.main-content {
+    margin-left: 0;
+    transition: margin-left 0.3s ease;
+}
+
+.main-content.sidebar-open {
+    margin-left: var(--sidebar-width);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .main-content.sidebar-open {
+        margin-left: 0;
+    }
+}
+
+/* Theme toggle button */
+#theme-toggle {
+    border: none !important;
+    padding: 0.375rem 0.75rem;
+}
+
+/* Landing page hero */
+.hero-section {
+    background: linear-gradient(135deg, var(--bs-primary) 0%, #0056b3 100%);
+    color: white;
+    padding: 80px 0;
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(var(--bs-primary-rgb), 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: var(--bs-primary);
+    margin-bottom: 20px;
+}
+
+/* Pricing cards */
+.pricing-card {
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.pricing-card:hover {
+    border-color: var(--bs-primary);
+    transform: translateY(-5px);
+}
+
+.pricing-card.featured {
+    border-color: var(--bs-primary);
+    position: relative;
+    transform: scale(1.05);
+}
+
+.pricing-card.featured::before {
+    content: 'Most Popular';
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bs-primary);
+    color: white;
+    padding: 4px 20px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Data tables */
+.table-responsive {
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* Status badges */
+.status-active {
+    background-color: #198754;
+}
+
+.status-inactive {
+    background-color: #6c757d;
+}
+
+.status-pending {
+    background-color: #ffc107;
+    color: #000;
+}
+
+/* Mobile optimizations */
+@media (max-width: 576px) {
+    .container-fluid {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+}

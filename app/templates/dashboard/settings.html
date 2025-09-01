@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h1 class="h3 mb-4">Organization Settings</h1>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Organization Information</h5>
+                </div>
+                <div class="card-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="orgName" class="form-label">Organization Name</label>
+                            <input type="text" class="form-control" id="orgName" 
+                                   value="{{ current_user.organization.name if current_user.organization else '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="orgSlug" class="form-label">Organization Slug</label>
+                            <input type="text" class="form-control" id="orgSlug" 
+                                   value="{{ current_user.organization.slug if current_user.organization else '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="orgDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="orgDescription" rows="3">{{ current_user.organization.description if current_user.organization else '' }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Subscription Info</h5>
+                </div>
+                <div class="card-body">
+                    {% if current_user.organization %}
+                    <p><strong>Plan:</strong> {{ current_user.organization.subscription_plan|title }}</p>
+                    <p><strong>Status:</strong> 
+                        <span class="badge bg-{{ 'success' if current_user.organization.subscription_status.value == 'active' else 'warning' }}">
+                            {{ current_user.organization.subscription_status.value|title }}
+                        </span>
+                    </p>
+                    {% endif %}
+                    <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-primary">Upgrade Plan</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

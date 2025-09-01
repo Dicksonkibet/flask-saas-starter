@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Flask SaaS Starter{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">Dashboard</h1>
+            <p class="text-muted">Welcome back, {{ current_user.first_name }}!</p>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quickActionModal">
+                <i class="bi bi-plus-lg me-1"></i>Quick Action
+            </button>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4" hx-get="{{ url_for('main.api_stats') }}" hx-trigger="every 30s">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Total Users</h6>
+                            <h3 class="mb-0">{{ stats.total_users if stats else 0 }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-people fs-1 opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Active Users</h6>
+                            <h3 class="mb-0">{{ stats.active_users if stats else 0 }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-person-check fs-1 opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Verified Users</h6>
+                            <h3 class="mb-0">{{ stats.verified_users if stats else 0 }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-person-plus fs-1 opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Admin Users</h6>
+                            <h3 class="mb-0">{{ stats.admin_users if stats else 0 }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-person-dash fs-1 opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts and Recent Activity -->
+    <div class="row g-4">
+        <!-- Analytics Chart -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">User Growth</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="userGrowthChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Users -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Recent Users</h5>
+                    <a href="{{ url_for('main.users') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% if recent_users %}
+                            {% for user in recent_users %}
+                            <div class="list-group-item d-flex align-items-center">
+                                <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-3">
+                                    {{ user.first_name[0] }}{{ user.last_name[0] }}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-0">{{ user.first_name }} {{ user.last_name }}</h6>
+                                    <small class="text-muted">{{ user.email }}</small>
+                                </div>
+                                <small class="text-muted">{{ user.created_at.strftime('%b %d') }}</small>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="list-group-item text-center text-muted">
+                                No recent users
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Activity Feed -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <!-- Activity items would be generated here -->
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Dashboard Loaded</h6>
+                                <p class="text-muted mb-0">Welcome to your dashboard</p>
+                                <small class="text-muted">Just now</small>
+                            </div>
+                        </div>
+                        {% if current_user.last_login %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-info"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Last Login</h6>
+                                <p class="text-muted mb-0">You logged in successfully</p>
+                                <small class="text-muted">{{ current_user.last_login.strftime('%b %d, %Y at %I:%M %p') }}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Action Modal -->
+<div class="modal fade" id="quickActionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Quick Actions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-grid gap-2">
+                    {% if current_user.is_admin() %}
+                        <a href="{{ url_for('main.admin') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-shield-check me-2"></i>Admin Dashboard
+                        </a>
+                        <a href="{{ url_for('main.users') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-person-plus me-2"></i>Manage Users
+                        </a>
+                        <a href="{{ url_for('main.settings') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-gear me-2"></i>Organization Settings
+                        </a>
+                    {% endif %}
+                    <a href="{{ url_for('main.profile') }}" class="btn btn-outline-info">
+                        <i class="bi bi-person me-2"></i>My Profile
+                    </a>
+                    <a href="{{ url_for('main.subscription') }}" class="btn btn-outline-success">
+                        <i class="bi bi-credit-card me-2"></i>Subscription
+                    </a>
+                    <button class="btn btn-outline-warning" onclick="exportData()">
+                        <i class="bi bi-download me-2"></i>Export Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Timeline CSS -->
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -22px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 3px solid #007bff;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+    font-weight: 600;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script>
+// Initialize user growth chart
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('userGrowthChart');
+    if (ctx) {
+        const userGrowthChart = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Users',
+                    data: [12, 19, 27, 35, 42, 48],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 4,
+                        hoverRadius: 6
+                    }
+                }
+            }
+        });
+    }
+});
+
+function exportData() {
+    // Export functionality - redirect to API endpoint
+    window.location.href = "{{ url_for('main.api_health') }}"; // Placeholder - update when you add actual export endpoint
+}
+
+// Auto-refresh stats every 30 seconds if HTMX is available
+if (typeof htmx !== 'undefined') {
+    // HTMX will handle the auto-refresh via hx-trigger
+    console.log('HTMX auto-refresh enabled for stats');
+}
+</script>
+{% endblock %}

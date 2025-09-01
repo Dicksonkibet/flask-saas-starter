@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Pricing - Flask SaaS Starter{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Header -->
+    <div class="row text-center mb-5">
+        <div class="col-lg-8 mx-auto">
+            <h1 class="display-4 fw-bold mb-4">Simple, Transparent Pricing</h1>
+            <p class="lead text-muted">Choose the plan that's right for your business</p>
+        </div>
+    </div>
+    
+    <!-- Pricing Cards -->
+    <div class="row justify-content-center g-4">
+        {% for plan_key, plan in plans.items() %}
+        <div class="col-lg-4 col-md-6">
+            <div class="card pricing-card h-100 {% if plan_key == 'pro' %}featured{% endif %}">
+                <div class="card-body p-4">
+                    <div class="text-center">
+                        <h3 class="h4 fw-bold">{{ plan.name }}</h3>
+                        <div class="display-4 fw-bold text-primary mb-3">
+                            ${{ plan.price }}
+                            <small class="fs-6 text-muted">/month</small>
+                        </div>
+                        <p class="text-muted mb-4">Perfect for {{ plan_key }} users</p>
+                    </div>
+                    
+                    <ul class="list-unstyled mb-4">
+                        {% for feature in plan.features %}
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            {{ feature }}
+                        </li>
+                        {% endfor %}
+                        
+                        {% if plan_key == 'free' %}
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Up to 5 users
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Basic analytics
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Email support
+                        </li>
+                        {% elif plan_key == 'pro' %}
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Up to 50 users
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Advanced analytics
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            API access
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Priority support
+                        </li>
+                        {% else %}
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Unlimited users
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Custom integrations
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            Dedicated support
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            SLA guarantee
+                        </li>
+                        {% endif %}
+                    </ul>
+                    
+                    <div class="d-grid">
+                        {% if current_user.is_authenticated %}
+                            <button class="btn {% if plan_key == 'pro' %}btn-primary{% else %}btn-outline-primary{% endif %} btn-lg"
+                                    onclick="upgradePlan('{{ plan_key }}')">
+                                {% if plan_key == 'free' %}Current Plan{% else %}Upgrade{% endif %}
+                            </button>
+                        {% else %}
+                            <a href="{{ url_for('auth.register') }}" 
+                               class="btn {% if plan_key == 'pro' %}btn-primary{% else %}btn-outline-primary{% endif %} btn-lg">
+                                Get Started
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% endblock %}

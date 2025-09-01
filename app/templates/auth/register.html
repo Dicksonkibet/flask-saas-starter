@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Flask SaaS Starter{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center min-vh-100 align-items-center py-5">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-rocket-takeoff fs-1 text-primary mb-3"></i>
+                        <h2 class="fw-bold">Create Account</h2>
+                        <p class="text-muted">Start your free trial today</p>
+                    </div>
+                    
+                    <form method="POST" class="needs-validation" novalidate>
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                {{ form.first_name.label(class="form-label") }}
+                                {{ form.first_name(class="form-control" + (" is-invalid" if form.first_name.errors else ""), 
+                                                  placeholder="First name") }}
+                                {% if form.first_name.errors %}
+                                    <div class="invalid-feedback">{{ form.first_name.errors[0] }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.last_name.label(class="form-label") }}
+                                {{ form.last_name(class="form-control" + (" is-invalid" if form.last_name.errors else ""), 
+                                                 placeholder="Last name") }}
+                                {% if form.last_name.errors %}
+                                    <div class="invalid-feedback">{{ form.last_name.errors[0] }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), 
+                                           placeholder="Choose a username") }}
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback">{{ form.username.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.email.label(class="form-label") }}
+                            {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), 
+                                         placeholder="Enter your email") }}
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback">{{ form.email.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), 
+                                           placeholder="Create a password") }}
+                            <div id="password-strength" class="mt-2"></div>
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback">{{ form.password.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            {{ form.password2.label(class="form-label") }}
+                            {{ form.password2(class="form-control" + (" is-invalid" if form.password2.errors else ""), 
+                                            placeholder="Confirm your password") }}
+                            {% if form.password2.errors %}
+                                <div class="invalid-feedback">{{ form.password2.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid mb-3">
+                            {{ form.submit(class="btn btn-primary btn-lg") }}
+                        </div>
+                    </form>
+                    
+                    <div class="text-center">
+                        <p class="mb-0">Already have an account? 
+                            <a href="{{ url_for('main.login') }}" class="text-decoration-none fw-semibold">
+                                Sign in here
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

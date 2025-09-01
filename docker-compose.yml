@@ -1,0 +1,52 @@
+
+
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@db:5432/flask_saas
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+      - uploads:/app/uploads
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=flask_saas
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  worker:
+    build: .
+    command: celery -A app.celery worker --loglevel=info
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@db:5432/flask_saas
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
+  uploads:
