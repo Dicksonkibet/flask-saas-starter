@@ -14,69 +14,145 @@
                         <p class="text-muted">Start your free trial today</p>
                     </div>
                     
+                    <!-- Display flash messages -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else ('warning' if category == 'warning' else ('success' if category == 'success' else 'info')) }} alert-dismissible fade show" role="alert">
+                                    <i class="bi bi-{{ 'exclamation-triangle' if category == 'error' else ('exclamation-triangle' if category == 'warning' else ('check-circle' if category == 'success' else 'info-circle')) }} me-2"></i>
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
                     <form method="POST" class="needs-validation" novalidate>
                         {{ form.hidden_tag() }}
                         
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 {{ form.first_name.label(class="form-label") }}
-                                {{ form.first_name(class="form-control" + (" is-invalid" if form.first_name.errors else ""), 
-                                                  placeholder="First name") }}
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-person"></i>
+                                    </span>
+                                    {{ form.first_name(class="form-control" + (" is-invalid" if form.first_name.errors else ""), 
+                                                      placeholder="First name",
+                                                      autocomplete="given-name") }}
+                                </div>
                                 {% if form.first_name.errors %}
-                                    <div class="invalid-feedback">{{ form.first_name.errors[0] }}</div>
+                                    <div class="invalid-feedback d-block">{{ form.first_name.errors[0] }}</div>
                                 {% endif %}
                             </div>
                             <div class="col-md-6">
                                 {{ form.last_name.label(class="form-label") }}
-                                {{ form.last_name(class="form-control" + (" is-invalid" if form.last_name.errors else ""), 
-                                                 placeholder="Last name") }}
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-person"></i>
+                                    </span>
+                                    {{ form.last_name(class="form-control" + (" is-invalid" if form.last_name.errors else ""), 
+                                                     placeholder="Last name",
+                                                     autocomplete="family-name") }}
+                                </div>
                                 {% if form.last_name.errors %}
-                                    <div class="invalid-feedback">{{ form.last_name.errors[0] }}</div>
+                                    <div class="invalid-feedback d-block">{{ form.last_name.errors[0] }}</div>
                                 {% endif %}
                             </div>
                         </div>
                         
                         <div class="mb-3">
                             {{ form.username.label(class="form-label") }}
-                            {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), 
-                                           placeholder="Choose a username") }}
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-at"></i>
+                                </span>
+                                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), 
+                                               placeholder="Choose a username",
+                                               autocomplete="username") }}
+                            </div>
                             {% if form.username.errors %}
-                                <div class="invalid-feedback">{{ form.username.errors[0] }}</div>
+                                <div class="invalid-feedback d-block">{{ form.username.errors[0] }}</div>
+                            {% else %}
+                                <div class="form-text">
+                                    <small class="text-muted">Username will be used for your organization URL</small>
+                                </div>
                             {% endif %}
                         </div>
                         
                         <div class="mb-3">
                             {{ form.email.label(class="form-label") }}
-                            {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), 
-                                         placeholder="Enter your email") }}
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-envelope"></i>
+                                </span>
+                                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), 
+                                             placeholder="Enter your email address",
+                                             autocomplete="email") }}
+                            </div>
                             {% if form.email.errors %}
-                                <div class="invalid-feedback">{{ form.email.errors[0] }}</div>
+                                <div class="invalid-feedback d-block">{{ form.email.errors[0] }}</div>
+                            {% else %}
+                                <div class="form-text">
+                                    <small class="text-muted">We'll send a verification email to this address</small>
+                                </div>
                             {% endif %}
                         </div>
                         
                         <div class="mb-3">
                             {{ form.password.label(class="form-label") }}
-                            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), 
-                                           placeholder="Create a password") }}
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-lock"></i>
+                                </span>
+                                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), 
+                                               placeholder="Create a strong password",
+                                               autocomplete="new-password") }}
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                    <i class="bi bi-eye" id="toggleIcon"></i>
+                                </button>
+                            </div>
                             <div id="password-strength" class="mt-2"></div>
                             {% if form.password.errors %}
-                                <div class="invalid-feedback">{{ form.password.errors[0] }}</div>
+                                <div class="invalid-feedback d-block">{{ form.password.errors[0] }}</div>
                             {% endif %}
                         </div>
                         
                         <div class="mb-4">
                             {{ form.password2.label(class="form-label") }}
-                            {{ form.password2(class="form-control" + (" is-invalid" if form.password2.errors else ""), 
-                                            placeholder="Confirm your password") }}
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-lock-fill"></i>
+                                </span>
+                                {{ form.password2(class="form-control" + (" is-invalid" if form.password2.errors else ""), 
+                                                placeholder="Confirm your password",
+                                                autocomplete="new-password") }}
+                            </div>
                             {% if form.password2.errors %}
-                                <div class="invalid-feedback">{{ form.password2.errors[0] }}</div>
+                                <div class="invalid-feedback d-block">{{ form.password2.errors[0] }}</div>
                             {% endif %}
                         </div>
                         
+                        <!-- Terms and Conditions -->
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" id="terms" required>
+                            <label class="form-check-label" for="terms">
+                                I agree to the 
+                                <a href="#" class="text-decoration-none">Terms of Service</a> 
+                                and 
+                                <a href="#" class="text-decoration-none">Privacy Policy</a>
+                            </label>
+                            <div class="invalid-feedback">
+                                You must agree to our terms and conditions.
+                            </div>
+                        </div>
+                        
                         <div class="d-grid mb-3">
-                            {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {{ form.submit(class="btn btn-primary btn-lg", value="Create Account") }}
                         </div>
                     </form>
+                    
+                    <hr class="my-4">
                     
                     <div class="text-center">
                         <p class="mb-0">Already have an account? 
@@ -90,4 +166,145 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Toggle password visibility
+    document.getElementById('togglePassword').addEventListener('click', function() {
+        const password = document.getElementById('password');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (password.type === 'password') {
+            password.type = 'text';
+            toggleIcon.classList.remove('bi-eye');
+            toggleIcon.classList.add('bi-eye-slash');
+        } else {
+            password.type = 'password';
+            toggleIcon.classList.remove('bi-eye-slash');
+            toggleIcon.classList.add('bi-eye');
+        }
+    });
+    
+    // Password strength checker
+    document.getElementById('password').addEventListener('input', function() {
+        const password = this.value;
+        const strengthDiv = document.getElementById('password-strength');
+        
+        if (password.length === 0) {
+            strengthDiv.innerHTML = '';
+            return;
+        }
+        
+        let strength = 0;
+        let feedback = [];
+        
+        // Check length
+        if (password.length >= 8) strength++;
+        else feedback.push('at least 8 characters');
+        
+        // Check for lowercase
+        if (/[a-z]/.test(password)) strength++;
+        else feedback.push('lowercase letters');
+        
+        // Check for uppercase
+        if (/[A-Z]/.test(password)) strength++;
+        else feedback.push('uppercase letters');
+        
+        // Check for numbers
+        if (/\d/.test(password)) strength++;
+        else feedback.push('numbers');
+        
+        // Check for special characters
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+        else feedback.push('special characters');
+        
+        // Display strength
+        let strengthText = '';
+        let strengthClass = '';
+        
+        if (strength < 2) {
+            strengthText = 'Weak';
+            strengthClass = 'text-danger';
+        } else if (strength < 4) {
+            strengthText = 'Fair';
+            strengthClass = 'text-warning';
+        } else if (strength < 5) {
+            strengthText = 'Good';
+            strengthClass = 'text-info';
+        } else {
+            strengthText = 'Strong';
+            strengthClass = 'text-success';
+        }
+        
+        let html = `<small class="${strengthClass}">Password strength: ${strengthText}</small>`;
+        
+        if (feedback.length > 0 && strength < 5) {
+            html += `<br><small class="text-muted">Add: ${feedback.join(', ')}</small>`;
+        }
+        
+        strengthDiv.innerHTML = html;
+    });
+    
+    // Real-time password confirmation check
+    document.getElementById('password2').addEventListener('input', function() {
+        const password = document.getElementById('password').value;
+        const password2 = this.value;
+        
+        if (password2.length > 0) {
+            if (password === password2) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+            }
+        } else {
+            this.classList.remove('is-valid', 'is-invalid');
+        }
+    });
+    
+    // Auto-dismiss alerts after 5 seconds
+    setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            if (alert.classList.contains('alert-success') || alert.classList.contains('alert-info')) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        });
+    }, 5000);
+    
+    // Form validation
+    (function() {
+        'use strict';
+        window.addEventListener('load', function() {
+            const forms = document.getElementsByClassName('needs-validation');
+            Array.prototype.filter.call(forms, function(form) {
+                form.addEventListener('submit', function(event) {
+                    if (form.checkValidity() === false) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                }, false);
+            });
+        }, false);
+    })();
+    
+    // Check username availability (debounced)
+    let usernameTimeout;
+    document.getElementById('username').addEventListener('input', function() {
+        const username = this.value;
+        const usernameField = this;
+        
+        clearTimeout(usernameTimeout);
+        
+        if (username.length >= 3) {
+            usernameTimeout = setTimeout(function() {
+                // You can implement an AJAX call here to check username availability
+                // For now, just show a loading state
+                console.log('Checking username availability for:', username);
+            }, 500);
+        }
+    });
+</script>
 {% endblock %}

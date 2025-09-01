@@ -30,25 +30,58 @@ def index():
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data.lower()).first()
+        # Clean and validate email
+        email = form.email.data.lower().strip()
+        password = form.password.data
         
-        if user and user.check_password(form.password.data):
+        # Find user by email
+        user = User.query.filter_by(email=email).first()
+        
+        if user and user.check_password(password):
+            # Check if account is active
             if not user.is_active:
-                flash('Your account has been deactivated.', 'error')
+                flash('Your account has been deactivated. Please contact support.', 'error')
                 return render_template('auth/login.html', form=form)
             
-            login_user(user, remember=form.remember_me.data)
-            user.last_login = datetime.now(timezone.utc)
-            db.session.commit()
+            # Check if email is verified (optional - remove if you don't want to enforce this)
+            if not user.is_verified:
+                flash('Please verify your email address before logging in. Check your inbox for the verification link.', 'warning')
+                return render_template('auth/login.html', form=form)
             
+            # Log the user in
+            login_user(user, remember=form.remember_me.data)
+            
+            # Update last login timestamp
+            user.last_login = datetime.now(timezone.utc)
+            
+            try:
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print(f"Error updating last login: {e}")
+                # Continue with login even if timestamp update fails
+            
+            # Handle redirect after successful login
             next_page = request.args.get('next')
             if not next_page or urlparse(next_page).netloc != '':
-                next_page = url_for('main.dashboard')
+                # Default redirect based on user role
+                if user.role == UserRole.ADMIN:
+                    next_page = url_for('main.dashboard')
+                else:
+                    next_page = url_for('main.dashboard')
             
+            # Success message with user's name
             flash(f'Welcome back, {user.first_name}!', 'success')
             return redirect(next_page)
         
-        flash('Invalid email or password.', 'error')
+        # Invalid credentials
+        flash('Invalid email or password. Please try again.', 'error')
+    
+    # If form validation failed, flash field errors
+    if form.errors:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f'{field.title()}: {error}', 'error')
     
     return render_template('auth/login.html', form=form)
 
@@ -59,10 +92,25 @@ def register():
     form = RegisterForm()
     if form.validate_on_submit():
         try:
+            # Clean form data
+            username = form.username.data.lower().strip()
+            email = form.email.data.lower().strip()
+            first_name = form.first_name.data.strip()
+            last_name = form.last_name.data.strip()
+            
+            # Check if user already exists
+            if User.query.filter_by(email=email).first():
+                flash('An account with this email already exists.', 'error')
+                return render_template('auth/register.html', form=form)
+            
+            if User.query.filter_by(username=username).first():
+                flash('This username is already taken.', 'error')
+                return render_template('auth/register.html', form=form)
+            
             # Create organization first
             org = Organization(
-                name=f"{form.first_name.data}'s Organization",
-                slug=f"{form.username.data.lower()}-org",
+                name=f"{first_name}'s Organization",
+                slug=f"{username}-org",
                 subscription_plan='free',
                 subscription_status=SubscriptionStatus.TRIAL
             )
@@ -71,12 +119,14 @@ def register():
             
             # Create user
             user = User(
-                username=form.username.data.lower(),
-                email=form.email.data.lower(),
-                first_name=form.first_name.data,
-                last_name=form.last_name.data,
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
                 role=UserRole.ADMIN,
-                organization_id=org.id
+                organization_id=org.id,
+                is_active=True,
+                is_verified=False  # Will be set to True after email verification
             )
             user.set_password(form.password.data)
             
@@ -93,36 +143,90 @@ def register():
             db.session.commit()
             
             # Send verification email
-            send_verification_email(user, token)
+            try:
+                send_verification_email(user, token)
+                flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
+            except Exception as e:
+                print(f"Error sending verification email: {e}")
+                flash('Registration successful! However, we could not send the verification email. Please contact support.', 'warning')
             
-            flash('Registration successful! Please check your email to verify your account.', 'success')
             return redirect(url_for('main.login'))
             
         except Exception as e:
             db.session.rollback()
             flash('An error occurred during registration. Please try again.', 'error')
-            # Log the error for debugging
             print(f"Registration error: {e}")
+    
+    # If form validation failed, flash field errors
+    if form.errors:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f'{field.title()}: {error}', 'error')
     
     return render_template('auth/register.html', form=form)
 
 @bp.route('/logout')
 @login_required
 def logout():
+    user_name = current_user.first_name if current_user.is_authenticated else "User"
     logout_user()
-    flash('You have been logged out.', 'info')
+    flash(f'Goodbye, {user_name}! You have been logged out successfully.', 'info')
     return redirect(url_for('main.index'))
 
 @bp.route('/verify-email/<token>')
 def verify_email(token):
+    if not token:
+        flash('Invalid verification link.', 'error')
+        return redirect(url_for('main.login'))
+    
     user = User.query.filter_by(email_verification_token=token).first()
+    
     if user:
-        user.is_verified = True
-        user.email_verification_token = None
-        db.session.commit()
-        flash('Email verified successfully!', 'success')
+        if user.is_verified:
+            flash('Your email is already verified. You can log in.', 'info')
+        else:
+            user.is_verified = True
+            user.email_verification_token = None
+            user.email_verified_at = datetime.now(timezone.utc)
+            
+            try:
+                db.session.commit()
+                flash('Email verified successfully! You can now log in to your account.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash('An error occurred while verifying your email. Please try again.', 'error')
+                print(f"Email verification error: {e}")
     else:
-        flash('Invalid or expired verification token.', 'error')
+        flash('Invalid or expired verification token. Please request a new verification email.', 'error')
+    
+    return redirect(url_for('main.login'))
+
+@bp.route('/resend-verification')
+@limiter.limit("3 per hour")
+def resend_verification():
+    """Resend verification email"""
+    email = request.args.get('email')
+    if not email:
+        flash('Email address is required.', 'error')
+        return redirect(url_for('main.login'))
+    
+    user = User.query.filter_by(email=email.lower().strip()).first()
+    if not user:
+        flash('No account found with that email address.', 'error')
+        return redirect(url_for('main.login'))
+    
+    if user.is_verified:
+        flash('Your email is already verified.', 'info')
+        return redirect(url_for('main.login'))
+    
+    try:
+        token = user.generate_verification_token()
+        db.session.commit()
+        send_verification_email(user, token)
+        flash('Verification email sent! Please check your inbox.', 'success')
+    except Exception as e:
+        flash('Error sending verification email. Please try again later.', 'error')
+        print(f"Resend verification error: {e}")
     
     return redirect(url_for('main.login'))
 
@@ -150,7 +254,7 @@ def dashboard():
     
     return render_template('dashboard/index.html', stats=stats, recent_users=recent_users)
 
-# Admin route (THIS WAS MISSING - ADDED TO FIX THE ERROR)
+# Admin route
 @bp.route('/admin')
 @login_required
 def admin():
@@ -235,15 +339,9 @@ def api_stats():
 # API routes (moved from api blueprint)
 @bp.route('/api/v1/health')
 def api_health():
-    return jsonify({'status': 'healthy'})
+    return jsonify({'status': 'healthy', 'timestamp': datetime.now(timezone.utc).isoformat()})
 
-# Pricing route (to fix the earlier error)
-# @bp.route('/pricing')
-# def pricing():
-#     return render_template('pricing.html')
-
-# Add more routes as needed
-
+# Stripe configuration
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 
 @bp.route('/subscription')
@@ -270,7 +368,7 @@ def upgrade_plan(plan_key):
     """Upgrade subscription plan"""
     if plan_key not in ['pro', 'enterprise']:
         flash('Invalid plan selected.', 'error')
-        return redirect(url_for('billing.subscription'))
+        return redirect(url_for('main.subscription'))
     
     subscription = current_user.organization.subscription
     
@@ -293,8 +391,8 @@ def upgrade_plan(plan_key):
                 'quantity': 1,
             }],
             mode='subscription',
-            success_url=url_for('billing.success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=url_for('billing.subscription', _external=True),
+            success_url=url_for('main.payment_success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url=url_for('main.subscription', _external=True),
             metadata={
                 'organization_id': current_user.organization_id,
                 'plan': plan_key
@@ -305,7 +403,26 @@ def upgrade_plan(plan_key):
         
     except stripe.error.StripeError as e:
         flash(f'Payment error: {str(e)}', 'error')
-        return redirect(url_for('billing.subscription'))
+        return redirect(url_for('main.subscription'))
+
+@bp.route('/payment/success')
+@login_required
+def payment_success():
+    """Handle successful payment"""
+    session_id = request.args.get('session_id')
+    if session_id:
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            if session.payment_status == 'paid':
+                flash('Payment successful! Your subscription has been upgraded.', 'success')
+            else:
+                flash('Payment is being processed. You will receive confirmation shortly.', 'info')
+        except stripe.error.StripeError:
+            flash('Payment completed, but we could not verify the details.', 'warning')
+    else:
+        flash('Payment completed successfully!', 'success')
+    
+    return redirect(url_for('main.subscription'))
 
 @bp.route('/webhook', methods=['POST'])
 def stripe_webhook():
@@ -342,6 +459,16 @@ def handle_successful_payment(session):
         subscription.status = SubscriptionStatus.ACTIVE
         subscription.stripe_customer_id = session['customer']
         subscription.stripe_subscription_id = session['subscription']
+        db.session.commit()
+
+def handle_failed_payment(invoice):
+    """Handle failed payment"""
+    # Extract customer ID and find subscription
+    customer_id = invoice['customer']
+    subscription = Subscription.query.filter_by(stripe_customer_id=customer_id).first()
+    
+    if subscription:
+        subscription.status = SubscriptionStatus.PAST_DUE
         db.session.commit()
 
 def get_plan_price(plan_key):
