@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 from enum import Enum
 
 class SubscriptionStatus(Enum):
-    ACTIVE = "active"
-    TRIAL = "trial"
-    EXPIRED = "expired"
-    CANCELLED = "cancelled"
+    ACTIVE = "ACTIVE"     # Changed from "active" to "ACTIVE"
+    TRIAL = "TRIAL"       # Changed from "trial" to "TRIAL"  
+    EXPIRED = "EXPIRED"   # Changed from "expired" to "EXPIRED"
+    CANCELLED = "CANCELLED" # Changed from "cancelled" to "CANCELLED"
 
 class Organization(db.Model):
     __tablename__ = 'organizations'
@@ -22,6 +22,7 @@ class Organization(db.Model):
     subscription_plan = db.Column(db.String(50), default='free')
     subscription_status = db.Column(db.Enum(SubscriptionStatus),
                                    default=SubscriptionStatus.TRIAL)
+                                   
     subscription_expires_at = db.Column(db.DateTime)
     
     # Settings
