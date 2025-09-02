@@ -10,7 +10,7 @@
     </div>
 
     <!-- Current Subscription Status -->
-    {% if subscription %}
+    {% if current_user.is_authenticated and subscription %}
     <div class="row justify-content-center mb-5">
         <div class="col-lg-8">
             <div class="card border-primary">
@@ -18,18 +18,37 @@
                     <h5 class="mb-0"><i class="bi bi-star-fill me-2"></i>Current Subscription</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6 class="text-muted">Plan</h6>
-                            <h4 class="text-capitalize">{{ subscription.plan.value }}</h4>
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <h6 class="text-muted mb-1">Plan</h6>
+                            <h4 class="text-capitalize mb-0">{{ subscription.plan.value }}</h4>
                         </div>
-                        <div class="col-md-6">
-                            <h6 class="text-muted">Status</h6>
-                            <span class="badge bg-{% if subscription.status.value == 'active' %}success{% elif subscription.status.value == 'trial' %}info{% elif subscription.status.value == 'past_due' %}warning{% else %}secondary{% endif %}">
+                        <div class="col-md-3">
+                            <h6 class="text-muted mb-1">Status</h6>
+                            <span class="badge bg-{% if subscription.status.value == 'ACTIVE' %}success{% elif subscription.status.value == 'TRIAL' %}info{% elif subscription.status.value == 'PAST_DUE' %}warning{% else %}secondary{% endif %}">
                                 {{ subscription.status.value|title }}
                             </span>
                         </div>
+                        {% if subscription.is_trialing %}
+                        <div class="col-md-3">
+                            <h6 class="text-muted mb-1">Trial Remaining</h6>
+                            <p class="mb-0">{{ subscription.days_remaining_in_trial }} days</p>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-3">
+                            <h6 class="text-muted mb-1">Price</h6>
+                            <p class="mb-0">${{ subscription.plan_price }}/month</p>
+                        </div>
                     </div>
+                    
+                    {% if subscription.is_trialing and subscription.days_remaining_in_trial <= 3 %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Your trial expires in {{ subscription.days_remaining_in_trial }} days. 
+                        <a href="{{ url_for('main.upgrade_plan', plan_key='pro') }}" class="alert-link">Upgrade now</a> to continue using Pro features.
+                    </div>
+                    {% endif %}
+                    
                     {% if subscription.stripe_subscription_id %}
                     <div class="mt-3">
                         <small class="text-muted">Subscription ID: {{ subscription.stripe_subscription_id }}</small>
@@ -44,8 +63,8 @@
     <!-- Pricing Plans -->
     <div class="row justify-content-center">
         <!-- Free Plan -->
-        <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-sm">
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm {% if subscription and subscription.plan.value == 'free' %}border-success{% endif %}">
                 <div class="card-header text-center py-4">
                     <h4 class="fw-bold text-muted">Free</h4>
                     <div class="display-4 fw-bold text-muted">$0</div>
@@ -59,23 +78,35 @@
                         <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Core features</li>
                         <li class="mb-2 text-muted"><i class="bi bi-x-circle me-2"></i>Advanced analytics</li>
                         <li class="mb-2 text-muted"><i class="bi bi-x-circle me-2"></i>Priority support</li>
+                        <li class="mb-2 text-muted"><i class="bi bi-x-circle me-2"></i>API access</li>
                     </ul>
                 </div>
                 <div class="card-footer bg-transparent text-center">
-                    {% if subscription and subscription.plan.value == 'free' %}
-                    <button class="btn btn-outline-primary w-100" disabled>Current Plan</button>
+                    {% if current_user.is_authenticated %}
+                        {% if subscription and subscription.plan.value == 'free' %}
+                        <button class="btn btn-success w-100" disabled>
+                            <i class="bi bi-check-circle me-2"></i>Current Plan
+                        </button>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('main.downgrade_plan', plan_key='free') }}" class="d-inline">
+                            <button type="submit" class="btn btn-outline-secondary w-100" 
+                                    onclick="return confirm('Are you sure you want to downgrade to the Free plan?')">
+                                Downgrade
+                            </button>
+                        </form>
+                        {% endif %}
                     {% else %}
-                    <button class="btn btn-outline-primary w-100" disabled>Your Current Plan</button>
+                    <a href="{{ url_for('main.register') }}" class="btn btn-outline-primary w-100">Get Started</a>
                     {% endif %}
                 </div>
             </div>
         </div>
 
         <!-- Pro Plan -->
-        <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-lg border-primary">
-                <div class="card-header bg-primary text-white text-center py-4">
-                    <span class="badge bg-warning position-absolute top-0 end-0 m-2">Popular</span>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-lg {% if subscription and subscription.plan.value == 'pro' %}border-success{% else %}border-primary{% endif %} position-relative">
+                <span class="badge bg-warning position-absolute top-0 end-0 m-3">Popular</span>
+                <div class="card-header {% if subscription and subscription.plan.value == 'pro' %}bg-success{% else %}bg-primary{% endif %} text-white text-center py-4">
                     <h4 class="fw-bold">Pro</h4>
                     <div class="display-4 fw-bold">$29</div>
                     <small>per month</small>
@@ -88,24 +119,35 @@
                         <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>All core features</li>
                         <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Advanced analytics</li>
                         <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>API access</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Custom branding</li>
                     </ul>
                 </div>
                 <div class="card-footer bg-transparent text-center">
-                    {% if subscription and subscription.plan.value == 'pro' %}
-                    <button class="btn btn-primary w-100" disabled>Current Plan</button>
+                    {% if current_user.is_authenticated %}
+                        {% if subscription and subscription.plan.value == 'pro' %}
+                        <button class="btn btn-success w-100" disabled>
+                            <i class="bi bi-check-circle me-2"></i>Current Plan
+                        </button>
+                        {% elif subscription and subscription.is_trialing %}
+                        <a href="{{ url_for('main.upgrade_plan', plan_key='pro') }}" class="btn btn-primary w-100">
+                            Continue with Pro
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('main.upgrade_plan', plan_key='pro') }}" class="btn btn-primary w-100">
+                            {% if not subscription or subscription.plan.value == 'free' %}Upgrade Now{% else %}Switch to Pro{% endif %}
+                        </a>
+                        {% endif %}
                     {% else %}
-                    <a href="{{ url_for('main.upgrade_plan', plan_key='pro') }}" class="btn btn-primary w-100">
-                        {% if subscription and subscription.plan.value == 'free' %}Upgrade Now{% else %}Switch to Pro{% endif %}
-                    </a>
+                    <a href="{{ url_for('main.register') }}" class="btn btn-primary w-100">Start Free Trial</a>
                     {% endif %}
                 </div>
             </div>
         </div>
 
         <!-- Enterprise Plan -->
-        <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-header text-center py-4 bg-dark text-white">
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm {% if subscription and subscription.plan.value == 'enterprise' %}border-success{% endif %}">
+                <div class="card-header text-center py-4 {% if subscription and subscription.plan.value == 'enterprise' %}bg-success{% else %}bg-dark{% endif %} text-white">
                     <h4 class="fw-bold">Enterprise</h4>
                     <div class="display-4 fw-bold">$99</div>
                     <small>per month</small>
@@ -118,20 +160,58 @@
                         <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>All features included</li>
                         <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Custom integrations</li>
                         <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Dedicated account manager</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>SLA guarantee</li>
                     </ul>
                 </div>
                 <div class="card-footer bg-transparent text-center">
-                    {% if subscription and subscription.plan.value == 'enterprise' %}
-                    <button class="btn btn-dark w-100" disabled>Current Plan</button>
+                    {% if current_user.is_authenticated %}
+                        {% if subscription and subscription.plan.value == 'enterprise' %}
+                        <button class="btn btn-success w-100" disabled>
+                            <i class="bi bi-check-circle me-2"></i>Current Plan
+                        </button>
+                        {% else %}
+                        <a href="{{ url_for('main.upgrade_plan', plan_key='enterprise') }}" class="btn btn-dark w-100">
+                            {% if not subscription or subscription.plan.value == 'free' %}Upgrade Now{% else %}Go Enterprise{% endif %}
+                        </a>
+                        {% endif %}
                     {% else %}
-                    <a href="{{ url_for('main.upgrade_plan', plan_key='enterprise') }}" class="btn btn-dark w-100">
-                        {% if subscription and subscription.plan.value == 'free' %}Upgrade Now{% else %}Go Enterprise{% endif %}
-                    </a>
+                    <a href="{{ url_for('main.register') }}" class="btn btn-dark w-100">Contact Sales</a>
                     {% endif %}
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Subscription Management -->
+    {% if current_user.is_authenticated and subscription and subscription.plan.value != 'free' %}
+    <div class="row justify-content-center mt-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Subscription Management</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-2">Need to make changes to your subscription?</p>
+                            <a href="{{ url_for('main.subscription') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-gear me-2"></i>Manage Subscription
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-2">Want to cancel your subscription?</p>
+                            <a href="{{ url_for('main.cancel_subscription') }}" 
+                               class="btn btn-outline-danger"
+                               onclick="return confirm('Are you sure you want to cancel your subscription?')">
+                                <i class="bi bi-x-circle me-2"></i>Cancel Subscription
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- FAQ Section -->
     <div class="row justify-content-center mt-5">
@@ -148,7 +228,7 @@
                     </h2>
                     <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#pricingFAQ">
                         <div class="accordion-body">
-                            Yes, you can upgrade or downgrade your plan at any time. Changes will be reflected in your next billing cycle.
+                            Yes, you can upgrade or downgrade your plan at any time. Upgrades take effect immediately, while downgrades will take effect at the end of your current billing period.
                         </div>
                     </div>
                 </div>
@@ -160,7 +240,7 @@
                     </h2>
                     <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#pricingFAQ">
                         <div class="accordion-body">
-                            Yes! All new accounts start with a 14-day free trial of our Pro plan features.
+                            Yes! All new accounts start with a 14-day free trial of our Pro plan features. No credit card required to start your trial.
                         </div>
                     </div>
                 </div>
@@ -172,7 +252,19 @@
                     </h2>
                     <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#pricingFAQ">
                         <div class="accordion-body">
-                            We accept all major credit cards through our secure Stripe payment gateway.
+                            We accept all major credit cards (Visa, MasterCard, American Express) through our secure Stripe payment gateway. Enterprise customers can also arrange for annual invoicing.
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                            Can I cancel anytime?
+                        </button>
+                    </h2>
+                    <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#pricingFAQ">
+                        <div class="accordion-body">
+                            Absolutely! You can cancel your subscription at any time. You'll continue to have access to paid features until the end of your current billing period.
                         </div>
                     </div>
                 </div>

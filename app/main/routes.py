@@ -4,18 +4,24 @@ from urllib.parse import urlparse
 from datetime import datetime, timezone
 from app import db, limiter
 from app.models.user import User, UserRole
-from app.models.organization import Organization, SubscriptionStatus
+from app.models.organization import Organization
+from app.models.enums import SubscriptionStatus, SubscriptionPlan
 from app.auth.forms import LoginForm, RegisterForm, ResetPasswordForm
 from app.utils.email import send_verification_email, send_password_reset_email
 from app.utils.decorators import anonymous_required
 from app.models.subscription import Subscription, SubscriptionPlan
 from app.utils.decorators import role_required
-from app.services.subscription_service import SubscriptionService  # ADD THIS IMPORT
+from app.services.subscription_service import SubscriptionService
 import stripe
 import os
 import re
 
 bp = Blueprint('main', __name__)
+
+# Initialize subscription service
+def get_subscription_service():
+    """Get subscription service instance"""
+    return SubscriptionService()
 
 # Main/Home routes
 @bp.route('/')
@@ -156,13 +162,20 @@ def register():
             # Set organization owner
             org.owner_id = user.id
             
+            # Create default subscription using service
+            subscription_service = get_subscription_service()
+            subscription = subscription_service.create_subscription(org, 'free')
+            
+            # Start trial for new organizations
+            subscription.start_trial(days=14)
+            
             # Commit everything together
             db.session.commit()
             
             # Send verification email
             try:
                 send_verification_email(user, token)
-                flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
+                flash('Registration successful! Please check your email to verify your account before logging in. You also have a 14-day free trial of Pro features!', 'success')
             except Exception as e:
                 print(f"Error sending verification email: {e}")
                 flash('Registration successful! However, we could not send the verification email. Please contact support.', 'warning')
@@ -267,8 +280,31 @@ def dashboard():
         recent_users = User.query.filter_by(organization_id=current_user.organization_id)\
                                  .order_by(User.created_at.desc())\
                                  .limit(5).all()
+        
+        # Get subscription info for dashboard context
+        try:
+            subscription_service = get_subscription_service()
+            subscription = subscription_service.get_organization_subscription(current_user.organization_id)
+            
+            # Add subscription info to stats
+            stats['subscription'] = {
+                'plan': subscription.plan.value if subscription else 'free',
+                'status': subscription.status.value if subscription else 'unknown',
+                'is_trialing': subscription.is_trialing if subscription else False,
+                'days_remaining': subscription.days_remaining_in_trial if subscription else 0
+            }
+        except Exception as e:
+            print(f"Error getting subscription info for dashboard: {e}")
+            stats['subscription'] = None
+            
     else:
-        stats = {'total_users': 0, 'active_users': 0, 'verified_users': 0, 'admin_users': 0}
+        stats = {
+            'total_users': 0, 
+            'active_users': 0, 
+            'verified_users': 0, 
+            'admin_users': 0,
+            'subscription': None
+        }
         recent_users = []
     
     return render_template('dashboard/index.html', stats=stats, recent_users=recent_users)
@@ -375,20 +411,24 @@ def api_stats():
 def api_health():
     return jsonify({'status': 'healthy', 'timestamp': datetime.now(timezone.utc).isoformat()})
 
-# Stripe configuration
-stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+# SUBSCRIPTION ROUTES - Updated to use service consistently
 
-@bp.route('/subscription1')
+@bp.route('/subscription')
 @login_required
 def subscription():
     """Current subscription details"""
-    subscription_service = SubscriptionService()
-    subscription = subscription_service.get_organization_subscription(current_user.organization_id)
+    try:
+        subscription_service = get_subscription_service()
+        subscription = subscription_service.get_organization_subscription(current_user.organization_id)
+        
+        return render_template('pricing.html', subscription=subscription)
     
-    return render_template('pricing.html', subscription=subscription)
+    except Exception as e:
+        current_app.logger.error(f"Error loading subscription: {e}")
+        flash('Error loading subscription information. Please try again.', 'error')
+        return redirect(url_for('main.dashboard'))
 
-
-@bp.route('/subscription')
+@bp.route('/pricing')
 def pricing():
     """Display subscription plans and pricing"""
     try:
@@ -435,14 +475,14 @@ def pricing():
         # Check if user is logged in and get their current subscription
         current_subscription = None
         if current_user.is_authenticated and current_user.organization_id:
-            subscription_service = SubscriptionService()
+            subscription_service = get_subscription_service()
             current_subscription = subscription_service.get_organization_subscription(
                 current_user.organization_id
             )
         
         return render_template('pricing.html', 
                              plans=plans, 
-                             current_subscription=current_subscription)
+                             subscription=current_subscription)  # Changed to 'subscription' for consistency
     
     except Exception as e:
         # Log the error for debugging
@@ -456,7 +496,7 @@ def pricing():
         }
         
         flash('We encountered a temporary issue loading our plans. Please try again shortly.', 'warning')
-        return render_template('pricing.html', plans=fallback_plans, current_subscription=None)
+        return render_template('pricing.html', plans=fallback_plans, subscription=None)
 
 @bp.route('/upgrade/<plan_key>')
 @login_required
@@ -467,9 +507,17 @@ def upgrade_plan(plan_key):
         flash('Invalid plan selected.', 'error')
         return redirect(url_for('main.subscription'))
     
-    subscription_service = SubscriptionService()
-    
     try:
+        subscription_service = get_subscription_service()
+        
+        # Check current subscription
+        current_subscription = subscription_service.get_organization_subscription(current_user.organization_id)
+        
+        # Prevent downgrading through this route
+        if current_subscription and current_subscription.plan.value == plan_key:
+            flash(f'You are already on the {plan_key.title()} plan.', 'info')
+            return redirect(url_for('main.subscription'))
+        
         success_url = url_for('main.payment_success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}'
         cancel_url = url_for('main.subscription', _external=True)
         
@@ -483,6 +531,7 @@ def upgrade_plan(plan_key):
         return redirect(checkout_session.url)
         
     except Exception as e:
+        current_app.logger.error(f"Error creating payment session: {e}")
         flash(f'Error creating payment session: {str(e)}', 'error')
         return redirect(url_for('main.subscription'))
 
@@ -495,10 +544,22 @@ def payment_success():
         try:
             session = stripe.checkout.Session.retrieve(session_id)
             if session.payment_status == 'paid':
+                # Update subscription using service
+                subscription_service = get_subscription_service()
+                organization_id = session['metadata']['organization_id']
+                plan_key = session['metadata']['plan']
+                
+                # The webhook should handle this, but let's be safe
+                subscription = subscription_service.get_organization_subscription(organization_id)
+                if subscription:
+                    subscription.upgrade_plan(plan_key)
+                    db.session.commit()
+                
                 flash('Payment successful! Your subscription has been upgraded.', 'success')
             else:
                 flash('Payment is being processed. You will receive confirmation shortly.', 'info')
-        except stripe.error.StripeError:
+        except stripe.error.StripeError as e:
+            current_app.logger.error(f"Error verifying payment: {e}")
             flash('Payment completed, but we could not verify the details.', 'warning')
     else:
         flash('Payment completed successfully!', 'success')
@@ -510,9 +571,8 @@ def payment_success():
 @role_required('admin')
 def cancel_subscription():
     """Cancel subscription"""
-    subscription_service = SubscriptionService()
-    
     try:
+        subscription_service = get_subscription_service()
         success = subscription_service.cancel_subscription(current_user.organization_id)
         
         if success:
@@ -521,11 +581,93 @@ def cancel_subscription():
             flash('Error canceling subscription. Please try again or contact support.', 'error')
             
     except Exception as e:
+        current_app.logger.error(f"Error canceling subscription: {e}")
         flash(f'Error canceling subscription: {str(e)}', 'error')
     
     return redirect(url_for('main.subscription'))
 
-@bp.route('/webhook', methods=['POST'])
+@bp.route('/subscription/reactivate')
+@login_required
+@role_required('admin')
+def reactivate_subscription():
+    """Reactivate a canceled subscription"""
+    try:
+        subscription_service = get_subscription_service()
+        subscription = subscription_service.get_organization_subscription(current_user.organization_id)
+        
+        if subscription and subscription.status == SubscriptionStatus.CANCELLED:
+            subscription.renew()
+            db.session.commit()
+            flash('Your subscription has been reactivated successfully.', 'success')
+        else:
+            flash('No canceled subscription found to reactivate.', 'info')
+    
+    except Exception as e:
+        current_app.logger.error(f"Error reactivating subscription: {e}")
+        flash('Error reactivating subscription. Please try again.', 'error')
+    
+    return redirect(url_for('main.subscription'))
+
+@bp.route('/downgrade/<plan_key>', methods=['POST'])
+@login_required
+@role_required('admin')
+def downgrade_plan(plan_key):
+    """Downgrade subscription plan"""
+    if plan_key not in ['free']:  # Only allow downgrade to free
+        flash('Invalid plan selected.', 'error')
+        return redirect(url_for('main.pricing'))
+    
+    try:
+        subscription_service = get_subscription_service()
+        current_subscription = subscription_service.get_organization_subscription(current_user.organization_id)
+        
+        if not current_subscription:
+            flash('No subscription found.', 'error')
+            return redirect(url_for('main.pricing'))
+        
+        if current_subscription.plan.value == plan_key:
+            flash(f'You are already on the {plan_key.title()} plan.', 'info')
+            return redirect(url_for('main.pricing'))
+        
+        # Cancel current subscription if it has Stripe integration
+        if current_subscription.stripe_subscription_id:
+            success = subscription_service.cancel_subscription(current_user.organization_id, at_period_end=True)
+            if success:
+                flash('Your subscription will be downgraded to Free at the end of your current billing period.', 'success')
+            else:
+                flash('Error scheduling downgrade. Please contact support.', 'error')
+        else:
+            # Immediately downgrade local subscription
+            subscription_service.upgrade_subscription(current_user.organization_id, plan_key)
+            flash('Your subscription has been downgraded to Free.', 'success')
+            
+    except Exception as e:
+        current_app.logger.error(f"Error downgrading subscription: {e}")
+        flash('Error processing downgrade. Please try again.', 'error')
+    
+    return redirect(url_for('main.pricing'))
+
+@bp.route('/subscription/analytics')
+@login_required
+@role_required('admin')
+def subscription_analytics():
+    """Get subscription analytics"""
+    try:
+        subscription_service = get_subscription_service()
+        analytics = subscription_service.get_subscription_analytics(current_user.organization_id)
+        
+        if analytics:
+            return jsonify(analytics)
+        else:
+            return jsonify({'error': 'No subscription found'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Error getting subscription analytics: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# WEBHOOK HANDLING - Updated
+
+@bp.route('/webhook/stripe', methods=['POST'])
 def stripe_webhook():
     """Handle Stripe webhooks"""
     payload = request.get_data(as_text=True)
@@ -535,44 +677,25 @@ def stripe_webhook():
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
         
-        subscription_service = SubscriptionService()
+        subscription_service = get_subscription_service()
         subscription_service.handle_webhook_event(event)
         
         return jsonify({'status': 'success'})
         
     except ValueError as e:
+        current_app.logger.error(f"Invalid webhook payload: {e}")
         return jsonify({'error': 'Invalid payload'}), 400
     except stripe.error.SignatureVerificationError as e:
+        current_app.logger.error(f"Invalid webhook signature: {e}")
         return jsonify({'error': 'Invalid signature'}), 400
     except Exception as e:
         current_app.logger.error(f"Webhook error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-def handle_successful_payment(session):
-    """Handle successful payment"""
-    org_id = session['metadata']['organization_id']
-    plan_key = session['metadata']['plan']
-    
-    subscription = Subscription.query.filter_by(organization_id=org_id).first()
-    if subscription:
-        subscription.plan = SubscriptionPlan(plan_key)
-        subscription.status = SubscriptionStatus.ACTIVE
-        subscription.stripe_customer_id = session['customer']
-        subscription.stripe_subscription_id = session['subscription']
-        db.session.commit()
-
-def handle_failed_payment(invoice):
-    """Handle failed payment"""
-    # Extract customer ID and find subscription
-    customer_id = invoice['customer']
-    subscription = Subscription.query.filter_by(stripe_customer_id=customer_id).first()
-    
-    if subscription:
-        subscription.status = SubscriptionStatus.PAST_DUE
-        db.session.commit()
+# UTILITY FUNCTIONS - Removed duplicates, everything goes through service
 
 def get_plan_price(plan_key):
-    """Get plan price in dollars"""
+    """Get plan price in dollars - DEPRECATED: Use subscription service instead"""
     prices = {
         'pro': 29,
         'enterprise': 99
