@@ -9,13 +9,12 @@ from app.models.enums import SubscriptionStatus, SubscriptionPlan
 from app.auth.forms import LoginForm, RegisterForm, ResetPasswordForm
 from app.utils.email import send_verification_email, send_password_reset_email
 from app.utils.decorators import anonymous_required
-from app.models.subscription import Subscription, SubscriptionPlan
+from app.models.subscription import Subscription
 from app.utils.decorators import role_required
 from app.services.subscription_service import SubscriptionService
 import stripe
 import os
 from app.auth.forms import ProfileUpdateForm, ChangePasswordForm
-
 import re
 
 bp = Blueprint('main', __name__)
@@ -86,6 +85,7 @@ def login():
                 flash(f'{field.title()}: {error}', 'error')
     
     return render_template('auth/login.html', form=form)
+
 @bp.route('/register', methods=['GET', 'POST'])
 @limiter.limit("3 per minute")
 @anonymous_required
@@ -433,8 +433,7 @@ def admin():
     recent_users = User.query.order_by(User.created_at.desc()).limit(10).all()
     
     return render_template('dashboard/admin.html', stats=stats, recent_users=recent_users)
-# Users management route - Enhanced version
-# Users management route - Updated to show all users or organization users based on preference
+
 @bp.route('/users')
 @login_required
 def users():
@@ -455,10 +454,18 @@ def users():
             org_dict = {org.id: org for org in organizations}
         else:
             # Show only users from the same organization (organization admin view)
+            # Check if current user has an organization
+            if not current_user.organization_id:
+                flash('You are not associated with any organization.', 'error')
+                return redirect(url_for('main.dashboard'))
+            
             users = User.query.filter_by(organization_id=current_user.organization_id)\
                              .order_by(User.created_at.desc())\
                              .all()
-            org_dict = {current_user.organization_id: current_user.organization}
+            
+            # Get the organization object safely
+            organization = Organization.query.get(current_user.organization_id)
+            org_dict = {current_user.organization_id: organization} if organization else {}
         
         return render_template('dashboard/users.html', 
                              users=users, 
@@ -468,9 +475,8 @@ def users():
         
     except Exception as e:
         flash('Error loading users. Please try again.', 'error')
-        print(f"Error in users management: {e}")
+        current_app.logger.error(f"Error in users management: {e}")
         return redirect(url_for('main.dashboard'))
-
 # Settings route
 @bp.route('/settings')
 @login_required
@@ -882,13 +888,3 @@ def stripe_webhook():
     except Exception as e:
         current_app.logger.error(f"Webhook error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
-
-# UTILITY FUNCTIONS - Removed duplicates, everything goes through service
-
-def get_plan_price(plan_key):
-    """Get plan price in dollars - DEPRECATED: Use subscription service instead"""
-    prices = {
-        'pro': 29,
-        'enterprise': 99
-    }
-    return prices.get(plan_key, 0)

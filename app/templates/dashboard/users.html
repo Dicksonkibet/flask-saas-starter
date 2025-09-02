@@ -9,17 +9,58 @@
         <h1 class="h2 fw-bold text-primary">
             <i class="bi bi-people me-2"></i>User Management
         </h1>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
-            <i class="bi bi-person-plus me-1"></i>Add User
-        </button>
+        <div>
+            {% if view_all %}
+            <a href="{{ url_for('main.users') }}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-building me-1"></i>My Organization
+            </a>
+            {% else %}
+            <a href="{{ url_for('main.users', all='true') }}" class="btn btn-outline-primary me-2">
+                <i class="bi bi-globe me-1"></i>All Users
+            </a>
+            {% endif %}
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <i class="bi bi-person-plus me-1"></i>Add User
+            </button>
+        </div>
     </div>
+
+    <!-- Organization Info (only show when viewing organization users) -->
+    {% if not view_all and organizations and current_user.organization_id in organizations %}
+    <div class="alert alert-info mb-4">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-building me-2"></i>
+            <div>
+                <strong>Organization:</strong> {{ organizations[current_user.organization_id].name }}
+                <small class="d-block text-muted">Viewing users in your organization</small>
+            </div>
+        </div>
+    </div>
+    {% elif view_all %}
+    <div class="alert alert-warning mb-4">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-globe me-2"></i>
+            <div>
+                <strong>System-wide View:</strong> Showing all users across all organizations
+                <small class="d-block text-muted">Administrator view</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Users Table -->
     <div class="card shadow-sm">
         <div class="card-header bg-white">
-            <h6 class="mb-0">Users in {{ organization.name }}</h6>
+            <h6 class="mb-0">
+                {% if view_all %}
+                All Users (System-wide)
+                {% else %}
+                Users in Organization
+                {% endif %}
+            </h6>
         </div>
         <div class="card-body">
+            {% if users %}
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
@@ -27,6 +68,7 @@
                             <th>Name</th>
                             <th>Email</th>
                             <th>Username</th>
+                            {% if view_all %}<th>Organization</th>{% endif %}
                             <th>Role</th>
                             <th>Status</th>
                             <th>Joined</th>
@@ -39,7 +81,7 @@
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
-                                        {{ user.first_name[0] }}{{ user.last_name[0] }}
+                                        {{ user.first_name[0]|upper if user.first_name else 'U' }}{{ user.last_name[0]|upper if user.last_name else 'S' }}
                                     </div>
                                     <div>
                                         {{ user.first_name }} {{ user.last_name }}
@@ -51,9 +93,18 @@
                             </td>
                             <td>{{ user.email }}</td>
                             <td>@{{ user.username }}</td>
+                            {% if view_all %}
+                            <td>
+                                {% if user.organization_id and user.organization_id in organizations %}
+                                {{ organizations[user.organization_id].name }}
+                                {% else %}
+                                <span class="text-muted">No organization</span>
+                                {% endif %}
+                            </td>
+                            {% endif %}
                             <td>
                                 <span class="badge bg-{% if user.role == UserRole.ADMIN %}warning{% else %}secondary{% endif %}">
-                                    {{ user.role.value|title }}
+                                    {{ user.role.value|title if user.role else 'User' }}
                                 </span>
                             </td>
                             <td>
@@ -64,7 +115,7 @@
                                     {{ 'Verified' if user.is_verified else 'Pending' }}
                                 </span>
                             </td>
-                            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A' }}</td>
                             <td>
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editUserModal{{ user.id }}">
@@ -82,10 +133,27 @@
                     </tbody>
                 </table>
             </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-people display-1 text-muted"></i>
+                <h5 class="text-muted mt-3">No users found</h5>
+                <p class="text-muted">
+                    {% if view_all %}
+                    There are no users in the system yet.
+                    {% else %}
+                    There are no users in your organization yet.
+                    {% endif %}
+                </p>
+                <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                    <i class="bi bi-person-plus me-1"></i>Add First User
+                </button>
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Pagination -->
+    <!-- Pagination (only show if there are users) -->
+    {% if users %}
     <nav aria-label="User pagination" class="mt-4">
         <ul class="pagination justify-content-center">
             <li class="page-item disabled">
@@ -99,6 +167,7 @@
             </li>
         </ul>
     </nav>
+    {% endif %}
 </div>
 
 <!-- Add User Modal -->
