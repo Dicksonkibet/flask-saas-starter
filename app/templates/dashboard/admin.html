@@ -7,11 +7,17 @@
     <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h2 fw-bold text-primary">
-            <i class="bi bi-speedometer2 me-2"></i>Admin Dashboard
+            <i class="bi bi-speedometer2 me-2"></i>System Admin Dashboard
         </h1>
         <div class="btn-group">
             <a href="{{ url_for('main.users') }}" class="btn btn-outline-primary">
                 <i class="bi bi-people me-1"></i>Manage Users
+            </a>
+            <a href="{{ url_for('main.users', all='true') }}" class="btn btn-outline-info">
+                <i class="bi bi-globe me-1"></i>All Users
+            </a>
+            <a href="{{ url_for('main.admin_analytics') }}" class="btn btn-outline-success">
+                <i class="bi bi-graph-up me-1"></i>Analytics
             </a>
             <a href="{{ url_for('main.settings') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-gear me-1"></i>Settings
@@ -19,15 +25,16 @@
         </div>
     </div>
 
-    <!-- Stats Cards -->
+    <!-- System-wide Stats Cards -->
     <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-xl-2 col-md-4 mb-4">
             <div class="card border-start border-primary border-4 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
                             <h6 class="text-muted fw-semibold">Total Users</h6>
-                            <h3 class="fw-bold">{{ stats.total_users }}</h3>
+                            <h3 class="fw-bold" data-stat="total_users">{{ stats.total_users }}</h3>
+                            <small class="text-muted">System-wide</small>
                         </div>
                         <div class="flex-shrink-0">
                             <i class="bi bi-people text-primary fs-1"></i>
@@ -37,13 +44,14 @@
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-xl-2 col-md-4 mb-4">
             <div class="card border-start border-success border-4 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
                             <h6 class="text-muted fw-semibold">Active Users</h6>
-                            <h3 class="fw-bold">{{ stats.active_users }}</h3>
+                            <h3 class="fw-bold" data-stat="active_users">{{ stats.active_users }}</h3>
+                            <small class="text-muted">Verified & Active</small>
                         </div>
                         <div class="flex-shrink-0">
                             <i class="bi bi-person-check text-success fs-1"></i>
@@ -53,13 +61,14 @@
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-xl-2 col-md-4 mb-4">
             <div class="card border-start border-info border-4 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
                             <h6 class="text-muted fw-semibold">Verified Users</h6>
-                            <h3 class="fw-bold">{{ stats.verified_users }}</h3>
+                            <h3 class="fw-bold" data-stat="verified_users">{{ stats.verified_users }}</h3>
+                            <small class="text-muted">Email verified</small>
                         </div>
                         <div class="flex-shrink-0">
                             <i class="bi bi-shield-check text-info fs-1"></i>
@@ -69,16 +78,51 @@
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-xl-2 col-md-4 mb-4">
             <div class="card border-start border-warning border-4 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
                             <h6 class="text-muted fw-semibold">Admin Users</h6>
-                            <h3 class="fw-bold">{{ stats.admin_users }}</h3>
+                            <h3 class="fw-bold" data-stat="admin_users">{{ stats.admin_users }}</h3>
+                            <small class="text-muted">All admins</small>
                         </div>
                         <div class="flex-shrink-0">
                             <i class="bi bi-star-fill text-warning fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-4 mb-4">
+            <div class="card border-start border-purple border-4 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted fw-semibold">Organizations</h6>
+                            <h3 class="fw-bold" data-stat="total_organizations">{{ stats.total_organizations }}</h3>
+                            <small class="text-muted">Total orgs</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-building text-purple fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-4 mb-4">
+            <div class="card border-start border-dark border-4 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted fw-semibold">Growth Rate</h6>
+                            <h3 class="fw-bold">+{{ ((stats.total_users / 30) * 100) | round(1) if stats.total_users > 0 else 0 }}%</h3>
+                            <small class="text-muted">This month</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-graph-up text-dark fs-1"></i>
                         </div>
                     </div>
                 </div>
@@ -91,21 +135,21 @@
         <div class="col-lg-4 mb-4">
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
-                    <h6 class="mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h6>
+                    <h6 class="mb-0"><i class="bi bi-lightning me-2"></i>System Actions</h6>
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('main.users') }}" class="btn btn-outline-primary text-start">
-                            <i class="bi bi-person-plus me-2"></i>Add New User
+                        <a href="{{ url_for('main.users', all='true') }}" class="btn btn-outline-primary text-start">
+                            <i class="bi bi-person-plus me-2"></i>View All Users
                         </a>
-                        <a href="{{ url_for('main.subscription') }}" class="btn btn-outline-success text-start">
-                            <i class="bi bi-arrow-up-circle me-2"></i>Upgrade Subscription
+                        <a href="{{ url_for('main.admin_analytics') }}" class="btn btn-outline-success text-start">
+                            <i class="bi bi-graph-up me-2"></i>System Analytics
                         </a>
                         <a href="{{ url_for('main.settings') }}" class="btn btn-outline-info text-start">
-                            <i class="bi bi-sliders me-2"></i>Organization Settings
+                            <i class="bi bi-sliders me-2"></i>System Settings
                         </a>
                         <button class="btn btn-outline-warning text-start" data-bs-toggle="modal" data-bs-target="#exportModal">
-                            <i class="bi bi-download me-2"></i>Export Data
+                            <i class="bi bi-download me-2"></i>Export System Data
                         </button>
                     </div>
                 </div>
@@ -141,7 +185,7 @@
         <div class="col-lg-8 mb-4">
             <div class="card shadow-sm">
                 <div class="card-header bg-white">
-                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Activity</h6>
+                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Registrations</h6>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -149,42 +193,30 @@
                             <thead>
                                 <tr>
                                     <th>User</th>
-                                    <th>Activity</th>
-                                    <th>Time</th>
+                                    <th>Email</th>
+                                    <th>Organization</th>
+                                    <th>Registered</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                {% for user in recent_users %}
                                 <tr>
-                                    <td>John Doe</td>
-                                    <td>Logged in</td>
-                                    <td>2 minutes ago</td>
-                                    <td><span class="badge bg-success">Success</span></td>
+                                    <td>{{ user.first_name }} {{ user.last_name }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ user.organization.name if user.organization else 'N/A' }}</td>
+                                    <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        {% if user.is_active and user.is_verified %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% elif user.is_active %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Inactive</span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
-                                <tr>
-                                    <td>Jane Smith</td>
-                                    <td>Updated profile</td>
-                                    <td>15 minutes ago</td>
-                                    <td><span class="badge bg-info">Completed</span></td>
-                                </tr>
-                                <tr>
-                                    <td>Bob Johnson</td>
-                                    <td>Created new project</td>
-                                    <td>1 hour ago</td>
-                                    <td><span class="badge bg-success">Success</span></td>
-                                </tr>
-                                <tr>
-                                    <td>Alice Brown</td>
-                                    <td>Failed login attempt</td>
-                                    <td>2 hours ago</td>
-                                    <td><span class="badge bg-danger">Failed</span></td>
-                                </tr>
-                                <tr>
-                                    <td>Mike Wilson</td>
-                                    <td>Changed password</td>
-                                    <td>3 hours ago</td>
-                                    <td><span class="badge bg-warning">Warning</span></td>
-                                </tr>
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -193,25 +225,30 @@
         </div>
     </div>
 
-    <!-- Subscription Overview -->
+    <!-- Quick Stats Summary -->
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header bg-info text-white">
-                    <h6 class="mb-0"><i class="bi bi-credit-card me-2"></i>Subscription Overview</h6>
+                    <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>System Overview</h6>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6>Current Plan: <span class="badge bg-primary text-capitalize">{{ current_user.organization.subscription_plan }}</span></h6>
-                            <h6>Status: <span class="badge bg-{% if current_user.organization.subscription_status.value == 'active' %}success{% elif current_user.organization.subscription_status.value == 'trial' %}info{% else %}warning{% endif %} text-capitalize">
-                                {{ current_user.organization.subscription_status.value }}
-                            </span></h6>
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h4>{{ ((stats.verified_users / stats.total_users) * 100) | round(1) if stats.total_users > 0 else 0 }}%</h4>
+                            <small class="text-muted">Verification Rate</small>
                         </div>
-                        <div class="col-md-6 text-end">
-                            <a href="{{ url_for('main.pricing') }}" class="btn btn-primary">
-                                <i class="bi bi-arrow-up-circle me-1"></i>Manage Subscription
-                            </a>
+                        <div class="col-md-3">
+                            <h4>{{ ((stats.active_users / stats.total_users) * 100) | round(1) if stats.total_users > 0 else 0 }}%</h4>
+                            <small class="text-muted">Active Users</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h4>{{ (stats.total_users / stats.total_organizations) | round(1) if stats.total_organizations > 0 else 0 }}</h4>
+                            <small class="text-muted">Avg Users/Org</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h4>{{ ((stats.admin_users / stats.total_users) * 100) | round(1) if stats.total_users > 0 else 0 }}%</h4>
+                            <small class="text-muted">Admin Ratio</small>
                         </div>
                     </div>
                 </div>
@@ -225,7 +262,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Export Data</h5>
+                <h5 class="modal-title">Export System Data</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -233,9 +270,10 @@
                     <div class="mb-3">
                         <label class="form-label">Export Type</label>
                         <select class="form-select">
-                            <option>User Data</option>
-                            <option>Activity Logs</option>
-                            <option>Subscription History</option>
+                            <option>All User Data</option>
+                            <option>Organization Data</option>
+                            <option>System Activity Logs</option>
+                            <option>Subscription Analytics</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -272,15 +310,18 @@
 
 {% block scripts %}
 <script>
-    // Auto-refresh stats every 60 seconds
+    // Auto-refresh stats every 60 seconds with system view
     setInterval(function() {
-        fetch('/api/stats')
+        fetch('/api/stats?view=system')
             .then(response => response.json())
             .then(data => {
                 document.querySelector('[data-stat="total_users"]').textContent = data.total_users;
                 document.querySelector('[data-stat="active_users"]').textContent = data.active_users;
                 document.querySelector('[data-stat="verified_users"]').textContent = data.verified_users;
                 document.querySelector('[data-stat="admin_users"]').textContent = data.admin_users;
+                if (data.total_organizations) {
+                    document.querySelector('[data-stat="total_organizations"]').textContent = data.total_organizations;
+                }
             })
             .catch(error => console.error('Error fetching stats:', error));
     }, 60000);

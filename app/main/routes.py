@@ -84,7 +84,6 @@ def login():
                 flash(f'{field.title()}: {error}', 'error')
     
     return render_template('auth/login.html', form=form)
-
 @bp.route('/register', methods=['GET', 'POST'])
 @limiter.limit("3 per minute")
 @anonymous_required
@@ -162,20 +161,13 @@ def register():
             # Set organization owner
             org.owner_id = user.id
             
-            # Create default subscription using service
-            subscription_service = get_subscription_service()
-            subscription = subscription_service.create_subscription(org, 'free')
-            
-            # Start trial for new organizations
-            subscription.start_trial(days=14)
-            
             # Commit everything together
             db.session.commit()
             
             # Send verification email
             try:
                 send_verification_email(user, token)
-                flash('Registration successful! Please check your email to verify your account before logging in. You also have a 14-day free trial of Pro features!', 'success')
+                flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
             except Exception as e:
                 print(f"Error sending verification email: {e}")
                 flash('Registration successful! However, we could not send the verification email. Please contact support.', 'warning')
@@ -309,7 +301,7 @@ def dashboard():
     
     return render_template('dashboard/index.html', stats=stats, recent_users=recent_users)
 
-# Admin route
+# Admin route - Updated to show all users system-wide
 @bp.route('/admin')
 @login_required
 def admin():
@@ -318,26 +310,25 @@ def admin():
         flash('Access denied. Admin privileges required.', 'error')
         return redirect(url_for('main.dashboard'))
     
-    # Get organization statistics
-    if current_user.organization_id:
-        org_users = User.query.filter_by(organization_id=current_user.organization_id).all()
-        stats = {
-            'total_users': len(org_users),
-            'active_users': sum(1 for user in org_users if user.is_active),
-            'verified_users': sum(1 for user in org_users if user.is_verified),
-            'admin_users': sum(1 for user in org_users if user.role == UserRole.ADMIN)
-        }
-    else:
-        stats = {
-            'total_users': 0,
-            'active_users': 0,
-            'verified_users': 0,
-            'admin_users': 0
-        }
+    # Get system-wide statistics (all users across all organizations)
+    all_users = User.query.all()
+    stats = {
+        'total_users': len(all_users),
+        'active_users': sum(1 for user in all_users if user.is_active),
+        'verified_users': sum(1 for user in all_users if user.is_verified),
+        'admin_users': sum(1 for user in all_users if user.role == UserRole.ADMIN)
+    }
     
-    return render_template('dashboard/admin.html', stats=stats)
-
+    # Additional system-wide stats
+    total_organizations = Organization.query.count()
+    stats['total_organizations'] = total_organizations
+    
+    # Recent registrations (last 10 users across all organizations)
+    recent_users = User.query.order_by(User.created_at.desc()).limit(10).all()
+    
+    return render_template('dashboard/admin.html', stats=stats, recent_users=recent_users)
 # Users management route - Enhanced version
+# Users management route - Updated to show all users or organization users based on preference
 @bp.route('/users')
 @login_required
 def users():
@@ -347,18 +338,27 @@ def users():
         return redirect(url_for('main.dashboard'))
     
     try:
-        # Get users from the same organization with pagination and ordering
-        users = User.query.filter_by(organization_id=current_user.organization_id)\
-                         .order_by(User.created_at.desc())\
-                         .all()
+        # Check if admin wants to see all users or just organization users
+        view_all = request.args.get('all', 'false').lower() == 'true'
         
-        # Get organization info for context
-        organization = Organization.query.get(current_user.organization_id)
+        if view_all:
+            # Show all users across all organizations (super admin view)
+            users = User.query.order_by(User.created_at.desc()).all()
+            # Get all organizations for context
+            organizations = Organization.query.all()
+            org_dict = {org.id: org for org in organizations}
+        else:
+            # Show only users from the same organization (organization admin view)
+            users = User.query.filter_by(organization_id=current_user.organization_id)\
+                             .order_by(User.created_at.desc())\
+                             .all()
+            org_dict = {current_user.organization_id: current_user.organization}
         
         return render_template('dashboard/users.html', 
                              users=users, 
-                             organization=organization,
-                             UserRole=UserRole)  # Pass UserRole enum to template
+                             organizations=org_dict,
+                             view_all=view_all,
+                             UserRole=UserRole)
         
     except Exception as e:
         flash('Error loading users. Please try again.', 'error')
@@ -384,27 +384,112 @@ def profile():
     return render_template('dashboard/profile.html')
 
 # API stats endpoint (for dashboard)
+# API stats endpoint - Updated to include system-wide stats
 @bp.route('/api/stats')
 @login_required
 def api_stats():
     """API endpoint for dashboard statistics"""
-    if current_user.organization_id:
-        org_users = User.query.filter_by(organization_id=current_user.organization_id).all()
-        stats = {
-            'total_users': len(org_users),
-            'active_users': sum(1 for user in org_users if user.is_active),
-            'verified_users': sum(1 for user in org_users if user.is_verified),
-            'admin_users': sum(1 for user in org_users if user.role == UserRole.ADMIN)
-        }
+    if current_user.is_admin():
+        # System-wide stats for admins
+        view_type = request.args.get('view', 'organization')  # 'organization' or 'system'
+        
+        if view_type == 'system':
+            all_users = User.query.all()
+            stats = {
+                'total_users': len(all_users),
+                'active_users': sum(1 for user in all_users if user.is_active),
+                'verified_users': sum(1 for user in all_users if user.is_verified),
+                'admin_users': sum(1 for user in all_users if user.role == UserRole.ADMIN),
+                'total_organizations': Organization.query.count()
+            }
+        else:
+            # Organization-specific stats
+            if current_user.organization_id:
+                org_users = User.query.filter_by(organization_id=current_user.organization_id).all()
+                stats = {
+                    'total_users': len(org_users),
+                    'active_users': sum(1 for user in org_users if user.is_active),
+                    'verified_users': sum(1 for user in org_users if user.is_verified),
+                    'admin_users': sum(1 for user in org_users if user.role == UserRole.ADMIN)
+                }
+            else:
+                stats = {
+                    'total_users': 0,
+                    'active_users': 0,
+                    'verified_users': 0,
+                    'admin_users': 0
+                }
     else:
-        stats = {
-            'total_users': 0,
-            'active_users': 0,
-            'verified_users': 0,
-            'admin_users': 0
-        }
+        # Non-admin users only see their organization stats
+        if current_user.organization_id:
+            org_users = User.query.filter_by(organization_id=current_user.organization_id).all()
+            stats = {
+                'total_users': len(org_users),
+                'active_users': sum(1 for user in org_users if user.is_active),
+                'verified_users': sum(1 for user in org_users if user.is_verified),
+                'admin_users': sum(1 for user in org_users if user.role == UserRole.ADMIN)
+            }
+        else:
+            stats = {
+                'total_users': 0,
+                'active_users': 0,
+                'verified_users': 0,
+                'admin_users': 0
+            }
     
     return jsonify(stats)
+
+@bp.route('/admin/analytics')
+@login_required
+@role_required('admin')
+def admin_analytics():
+    """System-wide analytics for admins"""
+    try:
+        # User registration trends
+        from sqlalchemy import func, extract
+        
+        # Users registered per month (last 12 months)
+        monthly_registrations = db.session.query(
+            extract('year', User.created_at).label('year'),
+            extract('month', User.created_at).label('month'),
+            func.count(User.id).label('count')
+        ).group_by('year', 'month').order_by('year', 'month').all()
+        
+        # Organization growth
+        monthly_orgs = db.session.query(
+            extract('year', Organization.created_at).label('year'),
+            extract('month', Organization.created_at).label('month'),
+            func.count(Organization.id).label('count')
+        ).group_by('year', 'month').order_by('year', 'month').all()
+        
+        # Active users by organization
+        org_stats = db.session.query(
+            Organization.name,
+            func.count(User.id).label('total_users'),
+            func.sum(User.is_active.cast(db.Integer)).label('active_users')
+        ).join(User).group_by(Organization.id).all()
+        
+        analytics_data = {
+            'monthly_registrations': [
+                {'year': int(r.year), 'month': int(r.month), 'count': r.count}
+                for r in monthly_registrations
+            ],
+            'monthly_organizations': [
+                {'year': int(r.year), 'month': int(r.month), 'count': r.count}
+                for r in monthly_orgs
+            ],
+            'organization_stats': [
+                {'name': r.name, 'total_users': r.total_users, 'active_users': r.active_users}
+                for r in org_stats
+            ]
+        }
+        
+        return render_template('dashboard/analytics.html', analytics=analytics_data)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error loading admin analytics: {e}")
+        flash('Error loading analytics. Please try again.', 'error')
+        return redirect(url_for('main.admin'))
 
 # API routes
 @bp.route('/api/v1/health')
