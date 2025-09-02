@@ -1,4 +1,5 @@
-# app/models/organization.py
+
+# app/models/organization.py - SIMPLE VERSION  
 from app import db
 from datetime import datetime, timezone
 from enum import Enum
@@ -28,11 +29,10 @@ class Organization(db.Model):
     logo_url = db.Column(db.String(255))
     website = db.Column(db.String(255))
     
-    # Owner relationship - nullable initially to handle creation order
-    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    
-    # Relationships - FIXED to avoid circular issues
-    # Note: The relationships will be properly defined after User model is loaded
+    # Owner relationship - with use_alter and named constraint
+    owner_id = db.Column(db.Integer, 
+                        db.ForeignKey('users.id', use_alter=True, name='fk_org_owner'), 
+                        nullable=True)
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

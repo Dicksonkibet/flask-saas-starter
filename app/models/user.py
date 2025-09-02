@@ -1,4 +1,3 @@
-# app/models/user.py
 from enum import Enum
 from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -21,8 +20,10 @@ class User(UserMixin, db.Model):
     last_name = db.Column(db.String(64), nullable=False)
     password_hash = db.Column(db.String(256))
     
-    # Foreign key to organization - FIXED: Make nullable initially
-    organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=True)
+    # Foreign key to organization - with use_alter to handle circular dependency
+    organization_id = db.Column(db.Integer, 
+                               db.ForeignKey('organizations.id', use_alter=True, name='fk_user_org'), 
+                               nullable=True)
     
     # User role and status
     role = db.Column(db.Enum(UserRole), default=UserRole.USER, nullable=False)
@@ -35,7 +36,8 @@ class User(UserMixin, db.Model):
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), 
+                          onupdate=lambda: datetime.now(timezone.utc))
     last_login = db.Column(db.DateTime, nullable=True)
     
     def __repr__(self):
@@ -64,21 +66,6 @@ class User(UserMixin, db.Model):
             self.email_verified_at = datetime.now(timezone.utc)
             return True
         return False
-
-# FIXED: Define relationships after both models are defined
-# Add this to your __init__.py or after both models are loaded
-def setup_relationships():
-    """Setup model relationships after all models are loaded"""
-    from app.models.organization import Organization
-    
-    # Setup User relationships
-    User.organization = db.relationship('Organization', 
-                                      foreign_keys=[User.organization_id],
-                                      backref=db.backref('users', lazy='dynamic'))
-    
-    User.owned_organizations = db.relationship('Organization',
-                                             foreign_keys='Organization.owner_id',
-                                             backref='owner')
 
 @login_manager.user_loader
 def load_user(id):

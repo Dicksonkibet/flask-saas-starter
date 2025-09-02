@@ -84,7 +84,6 @@ def login():
                 flash(f'{field.title()}: {error}', 'error')
     
     return render_template('auth/login.html', form=form)
-
 @bp.route('/register', methods=['GET', 'POST'])
 @limiter.limit("3 per minute")
 @anonymous_required
@@ -124,7 +123,7 @@ def register():
                 flash('This username is already taken.', 'error')
                 return render_template('auth/register.html', form=form)
             
-            # Create organization first with better slug generation
+            # STEP 1: Create organization first WITHOUT owner_id
             org_slug = f"{username}-org"
             counter = 1
             while Organization.query.filter_by(slug=org_slug).first():
@@ -135,19 +134,20 @@ def register():
                 name=f"{first_name}'s Organization",
                 slug=org_slug,
                 subscription_plan='free',
-                subscription_status=SubscriptionStatus.TRIAL
+                subscription_status=SubscriptionStatus.TRIAL,
+                owner_id=None  # Important: Set to None initially
             )
             db.session.add(org)
             db.session.flush()  # Get the organization ID without committing
             
-            # Create user
+            # STEP 2: Create user with organization_id
             user = User(
                 username=username,
                 email=email,
                 first_name=first_name,
                 last_name=last_name,
                 role=UserRole.ADMIN,
-                organization_id=org.id,
+                organization_id=org.id,  # Now we have the org ID
                 is_active=True,
                 is_verified=False  # Will be set to True after email verification
             )
@@ -159,17 +159,17 @@ def register():
             db.session.add(user)
             db.session.flush()  # Get the user ID without committing
             
-            # Set organization owner
-            org.owner_id = user.id
+            # STEP 3: Update organization with owner_id
+            org.owner_id = user.id  # Now we can set the owner
             
-            # Create default subscription using service
+            # STEP 4: Create subscription using service
             subscription_service = get_subscription_service()
             subscription = subscription_service.create_subscription(org, 'free')
             
             # Start trial for new organizations
             subscription.start_trial(days=14)
             
-            # Commit everything together
+            # STEP 5: Commit everything together
             db.session.commit()
             
             # Send verification email
@@ -197,6 +197,7 @@ def register():
                 flash(f'{field.replace("_", " ").title()}: {error}', 'error')
     
     return render_template('auth/register.html', form=form)
+
 
 @bp.route('/logout')
 @login_required
