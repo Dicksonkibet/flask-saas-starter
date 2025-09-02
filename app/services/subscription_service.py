@@ -24,18 +24,18 @@ class SubscriptionService:
                 subscription = Subscription(
                     organization_id=organization.id,
                     plan=plan,
-                    status=SubscriptionStatus.ACTIVE if plan != SubscriptionPlan.FREE else SubscriptionStatus.ACTIVE
+                    status=SubscriptionStatus.ACTIVE.value if plan != SubscriptionPlan.FREE else SubscriptionStatus.ACTIVE.value
                 )
                 db.session.add(subscription)
             else:
                 # Update existing subscription
                 subscription.plan = plan
-                subscription.status = SubscriptionStatus.ACTIVE
+                subscription.status = SubscriptionStatus.ACTIVE.value  # FIXED: Use .value
                 subscription.updated_at = datetime.now(timezone.utc)
             
             # Update organization subscription fields for backward compatibility
             organization.subscription_plan = plan_key
-            organization.subscription_status = SubscriptionStatus.ACTIVE
+            organization.subscription_status = SubscriptionStatus.ACTIVE.value  # FIXED: Use .value
             organization.updated_at = datetime.now(timezone.utc)
             
             db.session.commit()
@@ -164,7 +164,7 @@ class SubscriptionService:
                 subscription_obj.current_period_end = datetime.fromtimestamp(
                     stripe_subscription['current_period_end'], timezone.utc
                 )
-                subscription_obj.status = SubscriptionStatus.ACTIVE
+                subscription_obj.status = SubscriptionStatus.ACTIVE.value  # FIXED: Use .value
                 subscription_obj.updated_at = datetime.now(timezone.utc)
                 
                 db.session.commit()
@@ -187,7 +187,7 @@ class SubscriptionService:
             subscription_obj = Subscription.query.filter_by(organization_id=organization_id).first()
             
             if subscription_obj:
-                subscription_obj.status = SubscriptionStatus.CANCELLED
+                subscription_obj.status = SubscriptionStatus.CANCELLED.value  # FIXED: Use .value
                 subscription_obj.plan = SubscriptionPlan.FREE
                 subscription_obj.updated_at = datetime.now(timezone.utc)
                 
@@ -195,7 +195,7 @@ class SubscriptionService:
                 organization = Organization.query.get(organization_id)
                 if organization:
                     organization.subscription_plan = 'free'
-                    organization.subscription_status = SubscriptionStatus.CANCELLED
+                    organization.subscription_status = SubscriptionStatus.CANCELLED.value  # FIXED: Use .value
                     organization.updated_at = datetime.now(timezone.utc)
                 
                 db.session.commit()
@@ -224,13 +224,13 @@ class SubscriptionService:
             subscription_obj = Subscription.query.filter_by(organization_id=organization_id).first()
             
             if subscription_obj:
-                subscription_obj.status = SubscriptionStatus.ACTIVE
+                subscription_obj.status = SubscriptionStatus.ACTIVE.value  # FIXED: Use .value
                 subscription_obj.updated_at = datetime.now(timezone.utc)
                 
                 # Update organization status too
                 organization = Organization.query.get(organization_id)
                 if organization:
-                    organization.subscription_status = SubscriptionStatus.ACTIVE
+                    organization.subscription_status = SubscriptionStatus.ACTIVE.value  # FIXED: Use .value
                     organization.updated_at = datetime.now(timezone.utc)
                 
                 db.session.commit()
@@ -259,13 +259,13 @@ class SubscriptionService:
             subscription_obj = Subscription.query.filter_by(organization_id=organization_id).first()
             
             if subscription_obj and hasattr(SubscriptionStatus, 'PAST_DUE'):
-                subscription_obj.status = SubscriptionStatus.PAST_DUE
+                subscription_obj.status = SubscriptionStatus.PAST_DUE.value  # FIXED: Use .value
                 subscription_obj.updated_at = datetime.now(timezone.utc)
                 
                 # Update organization status too
                 organization = Organization.query.get(organization_id)
                 if organization:
-                    organization.subscription_status = SubscriptionStatus.PAST_DUE
+                    organization.subscription_status = SubscriptionStatus.PAST_DUE.value  # FIXED: Use .value
                     organization.updated_at = datetime.now(timezone.utc)
                 
                 db.session.commit()
@@ -319,14 +319,14 @@ class SubscriptionService:
                         current_app.logger.info(f"Scheduled cancellation at period end for org {organization_id}")
                     else:
                         stripe.Subscription.delete(subscription.stripe_subscription_id)
-                        subscription.status = SubscriptionStatus.CANCELLED
+                        subscription.status = SubscriptionStatus.CANCELLED.value  # FIXED: Use .value
                         subscription.plan = SubscriptionPlan.FREE
                         
                         # Update organization for backward compatibility
                         organization = Organization.query.get(organization_id)
                         if organization:
                             organization.subscription_plan = 'free'
-                            organization.subscription_status = SubscriptionStatus.CANCELLED
+                            organization.subscription_status = SubscriptionStatus.CANCELLED.value  # FIXED: Use .value
                             organization.updated_at = datetime.now(timezone.utc)
                         
                         current_app.logger.info(f"Immediately cancelled subscription for org {organization_id}")
@@ -340,7 +340,7 @@ class SubscriptionService:
                     return False
             else:
                 # Local subscription only (no Stripe)
-                subscription.status = SubscriptionStatus.CANCELLED
+                subscription.status = SubscriptionStatus.CANCELLED.value  # FIXED: Use .value
                 subscription.plan = SubscriptionPlan.FREE
                 subscription.updated_at = datetime.now(timezone.utc)
                 
@@ -348,7 +348,7 @@ class SubscriptionService:
                 organization = Organization.query.get(organization_id)
                 if organization:
                     organization.subscription_plan = 'free'
-                    organization.subscription_status = SubscriptionStatus.CANCELLED
+                    organization.subscription_status = SubscriptionStatus.CANCELLED.value  # FIXED: Use .value
                     organization.updated_at = datetime.now(timezone.utc)
                 
                 db.session.commit()
@@ -375,7 +375,7 @@ class SubscriptionService:
             organization = Organization.query.get(organization_id)
             if organization:
                 organization.subscription_plan = new_plan_key
-                organization.subscription_status = SubscriptionStatus.ACTIVE
+                organization.subscription_status = SubscriptionStatus.ACTIVE.value  # FIXED: Use .value
                 organization.updated_at = datetime.now(timezone.utc)
             
             db.session.commit()

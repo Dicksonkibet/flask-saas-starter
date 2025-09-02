@@ -134,7 +134,7 @@ def register():
                 name=f"{first_name}'s Organization",
                 slug=org_slug,
                 subscription_plan='free',
-                subscription_status=SubscriptionStatus.TRIAL,
+                subscription_status=SubscriptionStatus.TRIAL.value,
                 owner_id=None  # Important: Set to None initially
             )
             db.session.add(org)
