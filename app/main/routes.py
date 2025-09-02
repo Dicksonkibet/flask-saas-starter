@@ -378,7 +378,7 @@ def api_health():
 # Stripe configuration
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 
-@bp.route('/subscription')
+@bp.route('/subscription1')
 @login_required
 def subscription():
     """Current subscription details"""
@@ -386,6 +386,77 @@ def subscription():
     subscription = subscription_service.get_organization_subscription(current_user.organization_id)
     
     return render_template('pricing.html', subscription=subscription)
+
+
+@bp.route('/subscription')
+def pricing():
+    """Display subscription plans and pricing"""
+    try:
+        # Define plan prices with detailed information
+        plans = {
+            'free': {
+                'name': 'Free',
+                'price': 0,
+                'features': [
+                    'Up to 5 users',
+                    'Basic features',
+                    '1GB storage',
+                    'Community support'
+                ],
+                'recommended': False
+            },
+            'pro': {
+                'name': 'Pro',
+                'price': 29,
+                'features': [
+                    'Up to 25 users',
+                    'Advanced features',
+                    '10GB storage',
+                    'Priority support',
+                    'Custom branding'
+                ],
+                'recommended': True
+            },
+            'enterprise': {
+                'name': 'Enterprise',
+                'price': 99,
+                'features': [
+                    'Unlimited users',
+                    'All features',
+                    '100GB storage',
+                    '24/7 dedicated support',
+                    'Custom integrations',
+                    'SLA guarantee'
+                ],
+                'recommended': False
+            }
+        }
+        
+        # Check if user is logged in and get their current subscription
+        current_subscription = None
+        if current_user.is_authenticated and current_user.organization_id:
+            subscription_service = SubscriptionService()
+            current_subscription = subscription_service.get_organization_subscription(
+                current_user.organization_id
+            )
+        
+        return render_template('pricing.html', 
+                             plans=plans, 
+                             current_subscription=current_subscription)
+    
+    except Exception as e:
+        # Log the error for debugging
+        current_app.logger.error(f"Error loading pricing page: {str(e)}")
+        
+        # Fallback plans in case of error
+        fallback_plans = {
+            'free': {'name': 'Free', 'price': 0},
+            'pro': {'name': 'Pro', 'price': 29},
+            'enterprise': {'name': 'Enterprise', 'price': 99}
+        }
+        
+        flash('We encountered a temporary issue loading our plans. Please try again shortly.', 'warning')
+        return render_template('pricing.html', plans=fallback_plans, current_subscription=None)
 
 @bp.route('/upgrade/<plan_key>')
 @login_required
