@@ -1,169 +1,92 @@
-# \"\"\"Initial migration
+# migration_fix.py - Run this to fix your database schema
+from app import app, db
+from app.models.user import User, UserRole
+from app.models.organization import Organization, SubscriptionStatus
 
-Revision ID: 001
-Revises: 
-Create Date: 2025-01-01 00:00:00.000000
+def fix_database_schema():
+    """Fix the database schema and relationships"""
+    with app.app_context():
+        try:
+            print("Creating database tables...")
+            
+            # Drop and recreate tables if needed (WARNING: This will delete existing data)
+            # Only do this in development!
+            # db.drop_all()
+            
+            # Create all tables
+            db.create_all()
+            
+            # Check if tables exist and have correct structure
+            inspector = db.inspect(db.engine)
+            tables = inspector.get_table_names()
+            
+            print(f"Tables found: {tables}")
+            
+            if 'users' in tables:
+                users_columns = [col['name'] for col in inspector.get_columns('users')]
+                print(f"Users columns: {users_columns}")
+            
+            if 'organizations' in tables:
+                orgs_columns = [col['name'] for col in inspector.get_columns('organizations')]
+                print(f"Organizations columns: {orgs_columns}")
+            
+            # Test creating an organization and user
+            print("\nTesting registration flow...")
+            
+            # Check if test user already exists
+            existing_user = User.query.filter_by(email='test@example.com').first()
+            if existing_user:
+                print("Test user already exists, skipping test creation")
+                return
+            
+            # Create test organization
+            test_org = Organization(
+                name="Test Organization",
+                slug="test-org",
+                subscription_plan='free',
+                subscription_status=SubscriptionStatus.TRIAL
+            )
+            db.session.add(test_org)
+            db.session.flush()
+            
+            print(f"Created test organization with ID: {test_org.id}")
+            
+            # Create test user
+            test_user = User(
+                username='testuser',
+                email='test@example.com',
+                first_name='Test',
+                last_name='User',
+                role=UserRole.ADMIN,
+                organization_id=test_org.id,
+                is_active=True,
+                is_verified=True
+            )
+            test_user.set_password('testpassword')
+            
+            db.session.add(test_user)
+            db.session.flush()
+            
+            # Set organization owner
+            test_org.owner_id = test_user.id
+            
+            db.session.commit()
+            
+            print(f"Created test user with ID: {test_user.id}")
+            print("Test registration successful!")
+            
+            # Clean up test data
+            db.session.delete(test_user)
+            db.session.delete(test_org)
+            db.session.commit()
+            
+            print("Cleaned up test data. Database is ready!")
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error fixing database: {e}")
+            import traceback
+            print(traceback.format_exc())
 
-# \"\"\"
-from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-
-
-
-
-
-
-
-# Migration file to add session tracking fields
-# Run: flask db migrate -m "Add session tracking fields"
-# Then: flask db upgrade
-
-"""Add session tracking fields
-
-Revision ID: [auto-generated]
-Revises: [previous-revision]
-Create Date: [auto-generated]
-
-"""
-from alembic import op
-import sqlalchemy as sa
-
-# revision identifiers
-revision = '[auto-generated]'
-down_revision = '[previous-revision]'
-branch_labels = None
-depends_on = None
-
-def upgrade():
-    # Add session tracking columns to users table
-    op.add_column('users', sa.Column('session_token', sa.String(64), nullable=True))
-    op.add_column('users', sa.Column('session_expires_at', sa.DateTime(timezone=True), nullable=True))
-    
-    # Add index for session_token for faster lookups
-    op.create_index(op.f('ix_users_session_token'), 'users', ['session_token'], unique=False)
-
-def downgrade():
-    # Remove session tracking columns
-    op.drop_index(op.f('ix_users_session_token'), table_name='users')
-    op.drop_column('users', 'session_expires_at')
-    op.drop_column('users', 'session_token')
-
-# revision identifiers
-revision = '001'
-down_revision = None
-branch_labels = None
-depends_on = None
-
-def upgrade():
-    # Create organizations table
-    op.create_table('organizations',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(length=100), nullable=False),
-        sa.Column('slug', sa.String(length=100), nullable=False),
-        sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('subscription_plan', sa.String(length=50), nullable=True),
-        sa.Column('subscription_status', sa.Enum('ACTIVE', 'TRIAL', 'EXPIRED', 'CANCELLED', name='subscriptionstatus'), nullable=True),
-        sa.Column('subscription_expires_at', sa.DateTime(), nullable=True),
-        sa.Column('settings', sa.JSON(), nullable=True),
-        sa.Column('logo_url', sa.String(length=255), nullable=True),
-        sa.Column('website', sa.String(length=255), nullable=True),
-        sa.Column('owner_id', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_organizations_slug'), 'organizations', ['slug'], unique=True)
-    
-    # Create users table
-    op.create_table('users',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('username', sa.String(length=80), nullable=False),
-        sa.Column('email', sa.String(length=120), nullable=False),
-        sa.Column('password_hash', sa.String(length=255), nullable=False),
-        sa.Column('first_name', sa.String(length=50), nullable=False),
-        sa.Column('last_name', sa.String(length=50), nullable=False),
-        sa.Column('role', sa.Enum('USER', 'MANAGER', 'ADMIN', name='userrole'), nullable=False),
-        sa.Column('is_active', sa.Boolean(), nullable=False),
-        sa.Column('is_verified', sa.Boolean(), nullable=False),
-        sa.Column('email_verification_token', sa.String(length=255), nullable=True),
-        sa.Column('two_factor_enabled', sa.Boolean(), nullable=True),
-        sa.Column('two_factor_secret', sa.String(length=255), nullable=True),
-        sa.Column('organization_id', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.Column('last_login', sa.DateTime(), nullable=True),
-        sa.Column('avatar_url', sa.String(length=255), nullable=True),
-        sa.Column('bio', sa.Text(), nullable=True),
-        sa.Column('timezone', sa.String(length=50), nullable=True),
-        sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
-    op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
-    
-    # Create subscriptions table
-    op.create_table('subscriptions',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('organization_id', sa.Integer(), nullable=False),
-        sa.Column('plan', sa.Enum('FREE', 'PRO', 'ENTERPRISE', name='subscriptionplan'), nullable=False),
-        sa.Column('status', sa.Enum('ACTIVE', 'TRIAL', 'PAST_DUE', 'CANCELLED', 'EXPIRED', name='subscriptionstatus'), nullable=False),
-        sa.Column('stripe_customer_id', sa.String(length=255), nullable=True),
-        sa.Column('stripe_subscription_id', sa.String(length=255), nullable=True),
-        sa.Column('trial_start', sa.DateTime(), nullable=True),
-        sa.Column('trial_end', sa.DateTime(), nullable=True),
-        sa.Column('current_period_start', sa.DateTime(), nullable=True),
-        sa.Column('current_period_end', sa.DateTime(), nullable=True),
-        sa.Column('cancelled_at', sa.DateTime(), nullable=True),
-        sa.Column('user_limit', sa.Integer(), nullable=True),
-        sa.Column('feature_flags', sa.JSON(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('organization_id')
-    )
-    
-    # Create audit_logs table
-    op.create_table('audit_logs',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('action', sa.Enum('CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'PASSWORD_CHANGE', 'SETTINGS_UPDATE', name='auditaction'), nullable=False),
-        sa.Column('resource_type', sa.String(length=50), nullable=False),
-        sa.Column('resource_id', sa.Integer(), nullable=True),
-        sa.Column('details', sa.JSON(), nullable=True),
-        sa.Column('ip_address', sa.String(length=45), nullable=True),
-        sa.Column('user_agent', sa.String(length=255), nullable=True),
-        sa.Column('organization_id', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-    
-    # Create notifications table
-    op.create_table('notifications',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('title', sa.String(length=255), nullable=False),
-        sa.Column('message', sa.Text(), nullable=False),
-        sa.Column('type', sa.Enum('INFO', 'SUCCESS', 'WARNING', 'ERROR', name='notificationtype'), nullable=True),
-        sa.Column('is_read', sa.Boolean(), nullable=True),
-        sa.Column('is_email_sent', sa.Boolean(), nullable=True),
-        sa.Column('action_url', sa.String(length=255), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('read_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-
-def downgrade():
-    op.drop_table('notifications')
-    op.drop_table('audit_logs')
-    op.drop_table('subscriptions')
-    op.drop_index(op.f('ix_users_username'), table_name='users')
-    op.drop_index(op.f('ix_users_email'), table_name='users')
-    op.drop_table('users')
-    op.drop_index(op.f('ix_organizations_slug'), table_name='organizations')
-    op.drop_table('organizations')
+if __name__ == '__main__':
+    fix_database_schema()

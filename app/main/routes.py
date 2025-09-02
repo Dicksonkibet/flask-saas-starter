@@ -84,6 +84,7 @@ def login():
                 flash(f'{field.title()}: {error}', 'error')
     
     return render_template('auth/login.html', form=form)
+
 @bp.route('/register', methods=['GET', 'POST'])
 @limiter.limit("3 per minute")
 @anonymous_required
@@ -161,13 +162,20 @@ def register():
             # Set organization owner
             org.owner_id = user.id
             
+            # Create default subscription using service
+            subscription_service = get_subscription_service()
+            subscription = subscription_service.create_subscription(org, 'free')
+            
+            # Start trial for new organizations
+            subscription.start_trial(days=14)
+            
             # Commit everything together
             db.session.commit()
             
             # Send verification email
             try:
                 send_verification_email(user, token)
-                flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
+                flash('Registration successful! Please check your email to verify your account before logging in. You also have a 14-day free trial of Pro features!', 'success')
             except Exception as e:
                 print(f"Error sending verification email: {e}")
                 flash('Registration successful! However, we could not send the verification email. Please contact support.', 'warning')
