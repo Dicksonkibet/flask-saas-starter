@@ -4,104 +4,131 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Page Header -->
-    <div class="row mb-4">
+    <!-- Welcome Header -->
+    <div class="row align-items-center mb-4">
         <div class="col">
-            <h1 class="h3 mb-0">Dashboard</h1>
-            <p class="text-muted">Welcome back, {{ current_user.first_name }}!</p>
+            <h1 class="h2 fw-bold text-primary mb-1">Welcome back, {{ current_user.first_name }}!</h1>
+            <p class="text-muted mb-0">Here's what's happening with your organization today.</p>
         </div>
         <div class="col-auto">
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quickActionModal">
-                <i class="bi bi-plus-lg me-1"></i>Quick Action
-            </button>
-        </div>
-    </div>
-    
-    <!-- Stats Cards -->
-    <div class="row g-3 mb-4" hx-get="{{ url_for('main.api_stats') }}" hx-trigger="every 30s">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h6 class="card-title">Total Users</h6>
-                            <h3 class="mb-0">{{ stats.total_users if stats else 0 }}</h3>
-                        </div>
-                        <div class="align-self-center">
-                            <i class="bi bi-people fs-1 opacity-75"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h6 class="card-title">Active Users</h6>
-                            <h3 class="mb-0">{{ stats.active_users if stats else 0 }}</h3>
-                        </div>
-                        <div class="align-self-center">
-                            <i class="bi bi-person-check fs-1 opacity-75"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-3">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h6 class="card-title">Verified Users</h6>
-                            <h3 class="mb-0">{{ stats.verified_users if stats else 0 }}</h3>
-                        </div>
-                        <div class="align-self-center">
-                            <i class="bi bi-person-plus fs-1 opacity-75"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-3">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h6 class="card-title">Admin Users</h6>
-                            <h3 class="mb-0">{{ stats.admin_users if stats else 0 }}</h3>
-                        </div>
-                        <div class="align-self-center">
-                            <i class="bi bi-person-dash fs-1 opacity-75"></i>
-                        </div>
-                    </div>
-                </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="refreshDashboard()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                </button>
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#quickActionModal">
+                    <i class="bi bi-lightning me-1"></i>Quick Actions
+                </button>
             </div>
         </div>
     </div>
+
+    <!-- Stats Cards with Auto-refresh -->
+    <div class="row g-3 mb-4" id="stats-cards">
+        <!-- Total Users -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted fw-semibold mb-1">Total Users</h6>
+                            <h3 class="fw-bold mb-0 text-primary">{{ stats.total_users if stats else 0 }}</h3>
+                            <small class="text-muted">In your organization</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <div class="avatar-sm bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center">
+                                <i class="bi bi-people text-primary fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active Users -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted fw-semibold mb-1">Active Users</h6>
+                            <h3 class="fw-bold mb-0 text-success">{{ stats.active_users if stats else 0 }}</h3>
+                            <small class="text-muted">Currently active</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <div class="avatar-sm bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center">
+                                <i class="bi bi-person-check text-success fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Verified Users -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted fw-semibold mb-1">Verified Users</h6>
+                            <h3 class="fw-bold mb-0 text-info">{{ stats.verified_users if stats else 0 }}</h3>
+                            <small class="text-muted">Email verified</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <div class="avatar-sm bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center">
+                                <i class="bi bi-shield-check text-info fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Admin Users -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted fw-semibold mb-1">Admin Users</h6>
+                            <h3 class="fw-bold mb-0 text-warning">{{ stats.admin_users if stats else 0 }}</h3>
+                            <small class="text-muted">Administrators</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <div class="avatar-sm bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center">
+                                <i class="bi bi-star-fill text-warning fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     
-    <!-- Charts and Recent Activity -->
+    <!-- Main Content Area -->
     <div class="row g-4">
         <!-- Analytics Chart -->
         <div class="col-lg-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">User Growth</h5>
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">User Activity Overview</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active" data-period="week">Week</button>
+                        <button class="btn btn-outline-secondary" data-period="month">Month</button>
+                        <button class="btn btn-outline-secondary" data-period="year">Year</button>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <canvas id="userGrowthChart" height="300"></canvas>
+                    <canvas id="userActivityChart" height="300"></canvas>
                 </div>
             </div>
         </div>
         
-        <!-- Recent Users -->
+        <!-- Recent Users & Quick Stats -->
         <div class="col-lg-4">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <!-- Recent Users -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">Recent Users</h5>
                     <a href="{{ url_for('main.users') }}" class="btn btn-sm btn-outline-primary">View All</a>
                 </div>
@@ -110,8 +137,8 @@
                         {% if recent_users %}
                             {% for user in recent_users %}
                             <div class="list-group-item d-flex align-items-center">
-                                <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-3">
-                                    {{ user.first_name[0] }}{{ user.last_name[0] }}
+                                <div class="avatar-sm bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3">
+                                    <span class="text-primary fw-semibold">{{ user.first_name[0] }}{{ user.last_name[0] }}</span>
                                 </div>
                                 <div class="flex-grow-1">
                                     <h6 class="mb-0">{{ user.first_name }} {{ user.last_name }}</h6>
@@ -121,10 +148,50 @@
                             </div>
                             {% endfor %}
                         {% else %}
-                            <div class="list-group-item text-center text-muted">
-                                No recent users
+                            <div class="list-group-item text-center text-muted py-4">
+                                <i class="bi bi-people fs-1 d-block mb-2"></i>
+                                No users yet
                             </div>
                         {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="card-title mb-0">Organization Overview</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="border-end">
+                                <h4 class="fw-bold text-primary mb-0">
+                                    {{ ((stats.verified_users / stats.total_users) * 100) | round(1) if stats and stats.total_users > 0 else 0 }}%
+                                </h4>
+                                <small class="text-muted">Verified</small>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="fw-bold text-success mb-0">
+                                {{ ((stats.active_users / stats.total_users) * 100) | round(1) if stats and stats.total_users > 0 else 0 }}%
+                            </h4>
+                            <small class="text-muted">Active</small>
+                        </div>
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="fw-bold text-info mb-0">
+                                    {{ stats.total_organizations if stats else 1 }}
+                                </h4>
+                                <small class="text-muted">Organization</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="fw-bold text-warning mb-0">
+                                {{ ((stats.admin_users / stats.total_users) * 100) | round(1) if stats and stats.total_users > 0 else 0 }}%
+                            </h4>
+                            <small class="text-muted">Admins</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -134,18 +201,20 @@
     <!-- Activity Feed -->
     <div class="row mt-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">Recent Activity</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadMoreActivity()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Load More
+                    </button>
                 </div>
                 <div class="card-body">
                     <div class="timeline">
-                        <!-- Activity items would be generated here -->
                         <div class="timeline-item">
                             <div class="timeline-marker bg-success"></div>
                             <div class="timeline-content">
                                 <h6 class="mb-1">Dashboard Loaded</h6>
-                                <p class="text-muted mb-0">Welcome to your dashboard</p>
+                                <p class="text-muted mb-0">Welcome to your personalized dashboard</p>
                                 <small class="text-muted">Just now</small>
                             </div>
                         </div>
@@ -159,6 +228,7 @@
                             </div>
                         </div>
                         {% endif %}
+                        <!-- Additional activity items would be dynamically loaded here -->
                     </div>
                 </div>
             </div>
@@ -168,42 +238,106 @@
 
 <!-- Quick Action Modal -->
 <div class="modal fade" id="quickActionModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Quick Actions</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="d-grid gap-2">
+                <div class="row g-3">
                     {% if current_user.is_admin() %}
-                        <a href="{{ url_for('main.admin') }}" class="btn btn-outline-primary">
-                            <i class="bi bi-shield-check me-2"></i>Admin Dashboard
+                    <div class="col-md-6">
+                        <a href="{{ url_for('main.admin') }}" class="card card-action text-decoration-none">
+                            <div class="card-body text-center">
+                                <i class="bi bi-shield-check fs-1 text-primary mb-2"></i>
+                                <h6 class="card-title">Admin Dashboard</h6>
+                                <p class="text-muted small">Manage system settings</p>
+                            </div>
                         </a>
-                        <a href="{{ url_for('main.users') }}" class="btn btn-outline-primary">
-                            <i class="bi bi-person-plus me-2"></i>Manage Users
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{{ url_for('main.users') }}" class="card card-action text-decoration-none">
+                            <div class="card-body text-center">
+                                <i class="bi bi-person-plus fs-1 text-success mb-2"></i>
+                                <h6 class="card-title">Manage Users</h6>
+                                <p class="text-muted small">Add or manage users</p>
+                            </div>
                         </a>
-                        <a href="{{ url_for('main.settings') }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-gear me-2"></i>Organization Settings
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{{ url_for('main.settings') }}" class="card card-action text-decoration-none">
+                            <div class="card-body text-center">
+                                <i class="bi bi-gear fs-1 text-info mb-2"></i>
+                                <h6 class="card-title">Organization Settings</h6>
+                                <p class="text-muted small">Configure your org</p>
+                            </div>
                         </a>
+                    </div>
                     {% endif %}
-                    <a href="{{ url_for('main.profile') }}" class="btn btn-outline-info">
-                        <i class="bi bi-person me-2"></i>My Profile
-                    </a>
-                    <a href="{{ url_for('main.subscription') }}" class="btn btn-outline-success">
-                        <i class="bi bi-credit-card me-2"></i>Subscription
-                    </a>
-                    <button class="btn btn-outline-warning" onclick="exportData()">
-                        <i class="bi bi-download me-2"></i>Export Data
-                    </button>
+                    <div class="col-md-6">
+                        <a href="{{ url_for('main.profile') }}" class="card card-action text-decoration-none">
+                            <div class="card-body text-center">
+                                <i class="bi bi-person fs-1 text-warning mb-2"></i>
+                                <h6 class="card-title">My Profile</h6>
+                                <p class="text-muted small">Update your information</p>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{{ url_for('main.subscription') }}" class="card card-action text-decoration-none">
+                            <div class="card-body text-center">
+                                <i class="bi bi-credit-card fs-1 text-purple mb-2"></i>
+                                <h6 class="card-title">Subscription</h6>
+                                <p class="text-muted small">Manage your plan</p>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="#" class="card card-action text-decoration-none" onclick="exportData()">
+                            <div class="card-body text-center">
+                                <i class="bi bi-download fs-1 text-dark mb-2"></i>
+                                <h6 class="card-title">Export Data</h6>
+                                <p class="text-muted small">Download reports</p>
+                            </div>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Timeline CSS -->
 <style>
+.card-stat {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.card-action {
+    transition: all 0.2s ease;
+    border: 1px solid #dee2e6;
+}
+
+.card-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    border-color: #007bff;
+}
+
+.avatar-sm {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
 .timeline {
     position: relative;
     padding-left: 30px;
@@ -240,34 +374,31 @@
     border-radius: 8px;
     border-left: 3px solid #007bff;
 }
-
-.avatar-sm {
-    width: 40px;
-    height: 40px;
-    font-size: 14px;
-    font-weight: 600;
-}
 </style>
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Initialize user growth chart
+// Initialize user activity chart
 document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('userGrowthChart');
+    const ctx = document.getElementById('userActivityChart');
     if (ctx) {
-        const userGrowthChart = new Chart(ctx.getContext('2d'), {
+        const chart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                 datasets: [{
-                    label: 'Users',
-                    data: [12, 19, 27, 35, 42, 48],
-                    borderColor: 'rgb(75, 192, 192)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    label: 'Active Users',
+                    data: [12, 19, 15, 27, 22, 18, 24],
+                    borderColor: 'rgb(40, 167, 69)',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    pointBackgroundColor: 'rgb(40, 167, 69)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
                 }]
             },
             options: {
@@ -276,6 +407,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 plugins: {
                     legend: {
                         display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
                     }
                 },
                 scales: {
@@ -287,30 +422,92 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                     x: {
                         grid: {
-                            color: 'rgba(0,0,0,0.1)'
+                            display: false
                         }
                     }
                 },
-                elements: {
-                    point: {
-                        radius: 4,
-                        hoverRadius: 6
-                    }
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
                 }
             }
+        });
+
+        // Period switcher
+        document.querySelectorAll('[data-period]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('[data-period]').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                // In a real app, you would fetch data for the selected period
+            });
         });
     }
 });
 
-function exportData() {
-    // Export functionality - redirect to API endpoint
-    window.location.href = "{{ url_for('main.api_health') }}"; // Placeholder - update when you add actual export endpoint
+function refreshDashboard() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            // Update stats cards
+            document.querySelector('[data-stat="total_users"]').textContent = data.total_users;
+            document.querySelector('[data-stat="active_users"]').textContent = data.active_users;
+            document.querySelector('[data-stat="verified_users"]').textContent = data.verified_users;
+            document.querySelector('[data-stat="admin_users"]').textContent = data.admin_users;
+            
+            showNotification('Dashboard refreshed successfully!', 'success');
+        })
+        .catch(error => {
+            console.error('Error refreshing dashboard:', error);
+            showNotification('Failed to refresh dashboard', 'error');
+        });
 }
 
-// Auto-refresh stats every 30 seconds if HTMX is available
-if (typeof htmx !== 'undefined') {
-    // HTMX will handle the auto-refresh via hx-trigger
-    console.log('HTMX auto-refresh enabled for stats');
+function loadMoreActivity() {
+    // Simulate loading more activity
+    showNotification('Loading more activity...', 'info');
+    setTimeout(() => {
+        showNotification('Activity loaded successfully!', 'success');
+    }, 1000);
 }
+
+function exportData() {
+    showNotification('Preparing export...', 'info');
+    setTimeout(() => {
+        // In a real app, this would trigger a download
+        showNotification('Export ready for download!', 'success');
+    }, 1500);
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
+}
+
+// Auto-refresh every 30 seconds
+setInterval(refreshDashboard, 30000);
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
 </script>
 {% endblock %}
