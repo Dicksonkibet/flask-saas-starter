@@ -226,6 +226,18 @@ def api_update_profile():
         current_app.logger.error(f"Error updating profile: {e}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
+@bp.route('/paypal/success')
+def paypal_success():
+    order_id = request.args.get('token')
+    if order_id:
+        subscription_service = SubscriptionService()
+        subscription_service.capture_paypal_payment(order_id)
+    return redirect(url_for('main.subscription_success'))
+
+@bp.route('/paypal/cancel')
+def paypal_cancel():
+    return redirect(url_for('main.subscription_canceled'))
+
 @bp.route('/api/profile/change-password', methods=['POST'])
 @login_required
 def api_change_password():

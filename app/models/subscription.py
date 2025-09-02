@@ -26,7 +26,12 @@ class Subscription(db.Model):
     stripe_customer_id = db.Column(db.String(255), nullable=True)
     stripe_subscription_id = db.Column(db.String(255), nullable=True)
     stripe_price_id = db.Column(db.String(255), nullable=True)
-    
+
+    # Add these fields to your Subscription model
+    paypal_order_id = db.Column(db.String(255), nullable=True)
+    paypal_payment_captured = db.Column(db.Boolean, default=False)
+    paypal_capture_id = db.Column(db.String(255), nullable=True)
+        
     # Billing information
     current_period_start = db.Column(db.DateTime, nullable=True)
     current_period_end = db.Column(db.DateTime, nullable=True)
