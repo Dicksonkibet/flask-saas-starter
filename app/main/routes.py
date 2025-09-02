@@ -14,6 +14,8 @@ from app.utils.decorators import role_required
 from app.services.subscription_service import SubscriptionService
 import stripe
 import os
+from app.auth.forms import ProfileUpdateForm, ChangePasswordForm
+
 import re
 
 bp = Blueprint('main', __name__)
@@ -198,6 +200,89 @@ def register():
     
     return render_template('auth/register.html', form=form)
 
+@bp.route('/api/profile/update', methods=['POST'])
+@login_required
+def api_update_profile():
+    """Update user profile"""
+    try:
+        form = ProfileUpdateForm(original_username=current_user.username)
+        
+        if form.validate():
+            # Update user profile
+            current_user.first_name = form.first_name.data.strip()
+            current_user.last_name = form.last_name.data.strip()
+            current_user.username = form.username.data.lower().strip()
+            current_user.updated_at = datetime.now(timezone.utc)
+            
+            db.session.commit()
+            
+            return jsonify({'success': True, 'message': 'Profile updated successfully'})
+        else:
+            errors = {field.name: field.errors for field in form if field.errors}
+            return jsonify({'success': False, 'error': 'Validation failed', 'errors': errors}), 400
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating profile: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+@bp.route('/api/profile/change-password', methods=['POST'])
+@login_required
+def api_change_password():
+    """Change user password"""
+    try:
+        form = ChangePasswordForm()
+        
+        if form.validate():
+            # Validate current password
+            if not current_user.check_password(form.current_password.data):
+                return jsonify({'success': False, 'error': 'Current password is incorrect'}), 400
+            
+            # Update password
+            current_user.set_password(form.new_password.data)
+            current_user.updated_at = datetime.now(timezone.utc)
+            
+            db.session.commit()
+            
+            return jsonify({'success': True, 'message': 'Password updated successfully'})
+        else:
+            errors = {field.name: field.errors for field in form if field.errors}
+            return jsonify({'success': False, 'error': 'Validation failed', 'errors': errors}), 400
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error changing password: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+@bp.route('/api/profile/delete-account', methods=['POST'])
+@login_required
+def api_delete_account():
+    """Delete user account"""
+    try:
+        data = request.get_json()
+        
+        # Verify password
+        if not current_user.check_password(data.get('confirm_password', '')):
+            return jsonify({'success': False, 'error': 'Incorrect password'}), 400
+        
+        # Additional safety check
+        if not data.get('confirm_delete'):
+            return jsonify({'success': False, 'error': 'Please confirm account deletion'}), 400
+        
+        # Delete user account
+        # Note: In a real application, you might want to soft delete or handle this differently
+        db.session.delete(current_user)
+        db.session.commit()
+        
+        # Log user out
+        logout_user()
+        
+        return jsonify({'success': True, 'message': 'Account deleted successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting account: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 @bp.route('/logout')
 @login_required
